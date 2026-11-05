@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Office Attendance Tracker - Windows Server Setup & Security Manual</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 16mm 16mm 16mm 16mm;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+      line-height: 1.5;
+      font-size: 10.5pt;
+    }
+    .header-banner {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 22px 26px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      border-bottom: 4px solid #2563eb;
+    }
+    .header-banner .badge {
+      display: inline-block;
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 8.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 3px 10px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+    .header-banner h1 {
+      font-size: 18pt;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .header-banner p {
+      font-size: 10pt;
+      color: #cbd5e1;
+    }
+    h2 {
+      font-size: 13pt;
+      font-weight: 700;
+      color: #1e3a8a;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 5px;
+      margin-top: 18px;
+      margin-bottom: 10px;
+    }
+    h3 {
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-top: 12px;
+      margin-bottom: 4px;
+    }
+    p {
+      margin-bottom: 8px;
+      color: #334155;
+    }
+    ul, ol {
+      margin-left: 20px;
+      margin-bottom: 10px;
+      color: #334155;
+    }
+    li {
+      margin-bottom: 4px;
+    }
+    .callout {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin: 10px 0;
+      color: #1e3a8a;
+      font-size: 9.8pt;
+    }
+    .callout strong {
+      color: #1d4ed8;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 14px 0;
+      font-size: 9.5pt;
+    }
+    th {
+      background: #f1f5f9;
+      color: #0f172a;
+      font-weight: 700;
+      text-align: left;
+      padding: 7px 10px;
+      border: 1px solid #cbd5e1;
+    }
+    td {
+      padding: 6px 10px;
+      border: 1px solid #cbd5e1;
+      color: #334155;
+      vertical-align: top;
+    }
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+    .code-box {
+      font-family: Consolas, 'Courier New', monospace;
+      font-size: 9pt;
+      background: #0f172a;
+      color: #38bdf8;
+      padding: 9px 12px;
+      border-radius: 6px;
+      margin: 6px 0 10px 0;
+      word-break: break-all;
+    }
+    .inline-code {
+      font-family: Consolas, 'Courier New', monospace;
+      font-size: 9.2pt;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid #e2e8f0;
+    }
+    .tag-on {
+      display: inline-block;
+      background: #dcfce7;
+      color: #166534;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 8.5pt;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 10px 0;
+    }
+    .card {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 11px 14px;
+      background: #f8fafc;
+    }
+    .footer-note {
+      margin-top: 22px;
+      padding-top: 10px;
+      border-top: 1px solid #cbd5e1;
+      font-size: 8.5pt;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-banner">
+    <div class="badge">Official Administrator &amp; IT Deployment Guide</div>
+    <h1>Office Attendance Tracker — Windows Server Manual</h1>
+    <p>Complete Installation, Office LAN Setup, Login Credentials &amp; Data Anti-Tampering Security Guide (v2.4)</p>
+  </div>
+
+  <h2>1. Included Standalone Windows Software Files (.EXE)</h2>
+  <p>This package includes two self-contained Windows executables that require <strong>zero external dependencies</strong> (no Node.js, npm, or external database installation required):</p>
+  <div class="grid-2">
+    <div class="card">
+      <h3>1. OfficeAttendanceTracker-Setup.exe</h3>
+      <p><strong>Guided Windows Setup Wizard</strong> — Installs the application on your main Server PC, creates Desktop &amp; Start Menu shortcuts, configures Windows Auto-Start, and adds the LAN Firewall rule.</p>
+    </div>
+    <div class="card">
+      <h3>2. OfficeAttendanceTracker-Portable.exe</h3>
+      <p><strong>Single-File Portable Executable</strong> — Runs immediately from any folder or USB drive without installation. Launches the Windows Server Control Panel and embedded database engine.</p>
+    </div>
+  </div>
+
+  <h2>2. Which Options to Toggle ON/OFF While Installing</h2>
+  <div class="callout">
+    <strong>Important Golden Rule:</strong> You only install <span class="inline-code">OfficeAttendanceTracker-Setup.exe</span> on <strong>ONE computer (your main Office Server PC)</strong>. Do <strong>not</strong> install the server <span class="inline-code">.exe</span> on employee computers—employees connect to your server over the office network.
+  </div>
+  <p>Right-click <span class="inline-code">OfficeAttendanceTracker-Setup.exe</span> on your <strong>Server PC</strong>, select <strong>Run as Administrator</strong>, and set the 5 checkboxes as follows:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 42%;">Setup Wizard Checkbox Option</th>
+        <th style="width: 14%;">Toggle</th>
+        <th>Purpose &amp; Explanation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>1. Create Desktop Shortcut ("Office Attendance Tracker")</strong></td>
+        <td><span class="tag-on">ON (✓)</span></td>
+        <td>Places the server control panel icon on the Server PC desktop for quick management.</td>
+      </tr>
+      <tr>
+        <td><strong>2. Create Windows Start Menu Shortcut</strong></td>
+        <td><span class="tag-on">ON (✓)</span></td>
+        <td>Adds the program to the Windows Start Menu.</td>
+      </tr>
+      <tr>
+        <td><strong>3. Start Attendance Server automatically when Windows starts</strong></td>
+        <td><span class="tag-on">ON (✓)</span></td>
+        <td><strong>Essential for servers</strong> — automatically starts the server in the background whenever the PC reboots.</td>
+      </tr>
+      <tr>
+        <td><strong>4. Add Windows Firewall rule for Office LAN access (Port 3000)</strong></td>
+        <td><span class="tag-on">ON (✓)</span></td>
+        <td><strong>Essential for LAN access</strong> — opens TCP Port 3000 in Windows Firewall so employee PCs can connect.</td>
+      </tr>
+      <tr>
+        <td><strong>5. Launch Office Attendance Tracker immediately after setup</strong></td>
+        <td><span class="tag-on">ON (✓)</span></td>
+        <td>Starts the server and opens the Server Control Panel immediately.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3. How to Make It Available on All Office Computers (LAN Guide)</h2>
+
+  <h3>Step 1: Note Your Server's Office LAN Address</h3>
+  <ol>
+    <li>Open the <strong>Office Attendance Tracker — Local Windows Server</strong> Control Panel on your Server PC.</li>
+    <li>Look at the green <strong>Office LAN Address (Share with Staff PCs)</strong> box (for example: <span class="inline-code">http://192.168.1.100:3000</span>).</li>
+    <li><em>Recommended:</em> In your Windows Network Settings or office Wi-Fi router DHCP settings, reserve that local IP address (<span class="inline-code">192.168.1.100</span>) for your Server PC so it never changes after a router reboot.</li>
+  </ol>
+
+  <h3>Step 2: Connect Employee Computers (Zero Installation Needed)</h3>
+  <ol>
+    <li>Ensure each employee PC is connected to the <strong>same office Wi-Fi or Ethernet network</strong> as the Server PC.</li>
+    <li>Open Microsoft Edge or Google Chrome on the employee PC and enter the Server's LAN URL (e.g., <span class="inline-code">http://192.168.1.100:3000</span>).</li>
+    <li><strong>Optional — Create a Native Desktop App Icon on Employee PCs:</strong>
+      <ul>
+        <li>Right-click on the employee's Desktop &rarr; <strong>New</strong> &rarr; <strong>Shortcut</strong>.</li>
+        <li>Paste the command below (replace <span class="inline-code">192.168.1.100</span> with your Server's LAN IP):</li>
+      </ul>
+      <div class="code-box">"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --app=http://192.168.1.100:3000</div>
+      <ul>
+        <li>Name the shortcut <strong>Office Attendance Tracker</strong>. Double-clicking it opens a dedicated, standalone Windows application window without browser tabs or address bars.</li>
+      </ul>
+    </li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <h2>4. How to Stop People from Tampering with Data (6-Step Lockdown)</h2>
+
+  <h3>1. Change Default Admin PINs Immediately (Critical First Step)</h3>
+  <p>Anyone who knows the initial Admin PINs (<span class="inline-code">1234</span> or <span class="inline-code">5555</span>) can open the Admin Panel. Upon first launch:</p>
+  <ol>
+    <li>Sign in as <strong>Sarah Jenkins</strong> (<span class="inline-code">EMP-101</span> / PIN <span class="inline-code">1234</span>).</li>
+    <li>Open <strong>Employees Directory</strong> in the left sidebar.</li>
+    <li>Click <strong>Edit</strong> on both Admin accounts (<span class="inline-code">EMP-101</span> and <span class="inline-code">EMP-102</span>) and change their <strong>Kiosk Security PIN</strong> to a private 6-digit code known only to management.</li>
+    <li>Remove the sample employees (<span class="inline-code">EMP-103</span> through <span class="inline-code">EMP-108</span>) and add your actual employees with unique PINs.</li>
+  </ol>
+
+  <h3>2. Assign Regular Staff to the "Employee" Role Only</h3>
+  <p>When creating accounts in <strong>Employees Directory</strong>, set <strong>System Permission Role</strong> to <strong>Employee (Personal Reports &amp; Self Punch Only)</strong>. Standard employees <strong>cannot</strong> edit past punches, view other staff records, change shifts, or access server settings.</p>
+
+  <h3>3. Minimize to System Tray &amp; Lock the Server PC Screen (Win + L)</h3>
+  <p>The master database (<span class="inline-code">data\database.json</span>) resides on the Server PC. In the Server Control Panel, click <strong>Minimize to System Tray</strong>, then press <strong>Win + L</strong> to lock Windows with a password. The attendance server continues running 100% normally in the background while the screen is locked, preventing anyone from physically tampering with the server machine.</p>
+
+  <h3>4. Prevent "Buddy Punching" with Private PINs &amp; Lobby Kiosk</h3>
+  <p>If using a shared entrance tablet or reception PC, switch it to <strong>Lobby Kiosk Mode</strong> (top title bar). Employees must enter their 4-digit PIN to punch, and exiting Lobby Kiosk Mode back to the desktop view is locked behind your secret <strong>Administrator PIN</strong>.</p>
+
+  <h3>5. Built-In Mandatory Audit Trail for Manual Adjustments</h3>
+  <p>Employees cannot modify missed punches themselves. When an Admin adjusts a punch in <strong>Team Roster &amp; Logs &rarr; Adjust Log</strong>, the application requires a <strong>Mandatory Audit Reason</strong> and permanently stamps the record with the Admin's name and note on all CSV and PDF reports.</p>
+
+  <h3>6. Weekly 1-Click JSON Database Backup</h3>
+  <p>Once a week, log in as Admin &rarr; <strong>Office &amp; Server Settings</strong> &rarr; click <strong>Export Full Database Backup (JSON)</strong> and store the backup file on a private drive.</p>
+
+  <h2>5. Initial Default Login Credentials Reference</h2>
+  <p>Use these initial credentials for your first login, then update the PINs in <strong>Employees Directory</strong>:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Employee Code</th>
+        <th>Work Email</th>
+        <th>Default PIN</th>
+        <th>System Role &amp; Access</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Sarah Jenkins</strong></td>
+        <td><span class="inline-code">EMP-101</span></td>
+        <td><span class="inline-code">admin@office.local</span></td>
+        <td><strong><span class="inline-code">1234</span></strong></td>
+        <td><strong>ADMIN</strong> (Full Office &amp; Server Management)</td>
+      </tr>
+      <tr>
+        <td><strong>David Miller</strong></td>
+        <td><span class="inline-code">EMP-102</span></td>
+        <td><span class="inline-code">david@office.local</span></td>
+        <td><strong><span class="inline-code">5555</span></strong></td>
+        <td><strong>ADMIN</strong> (Full Office &amp; Server Management)</td>
+      </tr>
+      <tr>
+        <td><strong>Michael Chang</strong></td>
+        <td><span class="inline-code">EMP-103</span></td>
+        <td><span class="inline-code">michael@office.local</span></td>
+        <td><span class="inline-code">1001</span></td>
+        <td>Employee (Self-Service &amp; Personal Stats Only)</td>
+      </tr>
+      <tr>
+        <td><strong>Emily Watson</strong></td>
+        <td><span class="inline-code">EMP-104</span></td>
+        <td><span class="inline-code">emily@office.local</span></td>
+        <td><span class="inline-code">1002</span></td>
+        <td>Employee (Self-Service &amp; Personal Stats Only)</td>
+      </tr>
+      <tr>
+        <td><strong>Robert Taylor</strong></td>
+        <td><span class="inline-code">EMP-105</span></td>
+        <td><span class="inline-code">robert@office.local</span></td>
+        <td><span class="inline-code">1003</span></td>
+        <td>Employee (Self-Service &amp; Personal Stats Only)</td>
+      </tr>
+      <tr>
+        <td><strong>Priya Patel</strong></td>
+        <td><span class="inline-code">EMP-106</span></td>
+        <td><span class="inline-code">priya@office.local</span></td>
+        <td><span class="inline-code">1004</span></td>
+        <td>Employee (Self-Service &amp; Personal Stats Only)</td>
+      </tr>
+      <tr>
+        <td><strong>Lucas Vance</strong></td>
+        <td><span class="inline-code">EMP-107</span></td>
+        <td><span class="inline-code">lucas@office.local</span></td>
+        <td><span class="inline-code">1005</span></td>
+        <td>Employee (Self-Service &amp; Personal Stats Only)</td>
+      </tr>
+      <tr>
+        <td><strong>Jessica Brooks</strong></td>
+        <td><span class="inline-code">EMP-108</span></td>
+        <td><span class="inline-code">jessica@office.local</span></td>
+        <td><span class="inline-code">1006</span></td>
+        <td>Employee (Self-Service &amp; Personal Stats Only)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Manual Windows Firewall Command (Reference)</h3>
+  <p>If you ever need to manually open Port 3000 in an Administrator Command Prompt on the server:</p>
+  <div class="code-box">netsh advfirewall firewall add rule name="Office Attendance Tracker" dir=in action=allow protocol=TCP localport=3000</div>
+
+  <div class="footer-note">
+    Office Attendance Tracker — Local Windows Server Edition v2.4 · Standalone On-Premise Deployment Documentation
+  </div>
+
+</body>
+</html>
