@@ -437,19 +437,23 @@ export function generateInitialAttendanceRecords(): AttendanceRecord[] {
 // Server Sync Helper (for standalone .exe and Express server)
 let isSyncingFromServer = false;
 
+const STORAGE_KEY_UPDATED_AT = 'office_attend_updated_at_v1';
+
 export async function pushDatabaseToServer(): Promise<void> {
   if (isSyncingFromServer) return;
   try {
+    const nowIso = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEY_UPDATED_AT, nowIso);
     const payload = {
       version: '1.0',
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowIso,
       settings: JSON.parse(localStorage.getItem(STORAGE_KEY_SETTINGS) || 'null') || INITIAL_SETTINGS,
       shifts: JSON.parse(localStorage.getItem(STORAGE_KEY_SHIFTS) || 'null') || INITIAL_SHIFTS,
       employees: JSON.parse(localStorage.getItem(STORAGE_KEY_EMPLOYEES) || 'null') || INITIAL_EMPLOYEES,
       attendance: JSON.parse(localStorage.getItem(STORAGE_KEY_ATTENDANCE) || 'null') || generateInitialAttendanceRecords(),
       leaves: JSON.parse(localStorage.getItem(STORAGE_KEY_LEAVES) || 'null') || INITIAL_LEAVES,
     };
-    await fetch('/api/db', {
+    await fetch(`/api/db?t=${Date.now()}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -459,13 +463,28 @@ export async function pushDatabaseToServer(): Promise<void> {
   }
 }
 
-export async function syncDatabaseFromServer(): Promise<boolean> {
+export async function syncDatabaseFromServer(forceAccept = false): Promise<boolean> {
   try {
-    const res = await fetch('/api/db', { cache: 'no-store' });
+    const res = await fetch(`/api/db?t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return false;
     const data = await res.json();
     if (data && Array.isArray(data.employees) && Array.isArray(data.attendance)) {
+      const localUpdatedAt = localStorage.getItem(STORAGE_KEY_UPDATED_AT);
+      // Always accept server data if forceAccept is true, or if local has no timestamp yet,
+      // or if server updatedAt is newer/different
+      if (
+        !forceAccept &&
+        localUpdatedAt &&
+        data.updatedAt &&
+        new Date(data.updatedAt).getTime() < new Date(localUpdatedAt).getTime()
+      ) {
+        return false;
+      }
+
       isSyncingFromServer = true;
+      if (data.updatedAt) {
+        localStorage.setItem(STORAGE_KEY_UPDATED_AT, data.updatedAt);
+      }
       if (data.settings) localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(data.settings));
       if (data.shifts) localStorage.setItem(STORAGE_KEY_SHIFTS, JSON.stringify(data.shifts));
       if (data.employees) localStorage.setItem(STORAGE_KEY_EMPLOYEES, JSON.stringify(data.employees));
@@ -484,12 +503,13 @@ export async function syncDatabaseFromServer(): Promise<boolean> {
   }
 }
 
-// Local Storage Wrappers
+// Local Storage Wrappers — NOTE: load* functions NEVER call pushDatabaseToServer()
+// so a newly opened employee laptop never overwrites the server DB with dummy data!
 export function loadEmployees(): Employee[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_EMPLOYEES);
     if (!raw) {
-      saveEmployees(INITIAL_EMPLOYEES);
+      localStorage.setItem(STORAGE_KEY_EMPLOYEES, JSON.stringify(INITIAL_EMPLOYEES));
       return INITIAL_EMPLOYEES;
     }
     return JSON.parse(raw);
@@ -512,7 +532,7 @@ export function loadAttendanceRecords(): AttendanceRecord[] {
     const raw = localStorage.getItem(STORAGE_KEY_ATTENDANCE);
     if (!raw) {
       const initial = generateInitialAttendanceRecords();
-      saveAttendanceRecords(initial);
+      localStorage.setItem(STORAGE_KEY_ATTENDANCE, JSON.stringify(initial));
       return initial;
     }
     return JSON.parse(raw);
@@ -534,7 +554,7 @@ export function loadShifts(): ShiftSchedule[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_SHIFTS);
     if (!raw) {
-      saveShifts(INITIAL_SHIFTS);
+      localStorage.setItem(STORAGE_KEY_SHIFTS, JSON.stringify(INITIAL_SHIFTS));
       return INITIAL_SHIFTS;
     }
     return JSON.parse(raw);
@@ -556,7 +576,7 @@ export function loadLeaves(): LeaveRequest[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_LEAVES);
     if (!raw) {
-      saveLeaves(INITIAL_LEAVES);
+      localStorage.setItem(STORAGE_KEY_LEAVES, JSON.stringify(INITIAL_LEAVES));
       return INITIAL_LEAVES;
     }
     return JSON.parse(raw);
@@ -578,7 +598,7 @@ export function loadSettings(): OfficeSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_SETTINGS);
     if (!raw) {
-      saveSettings(INITIAL_SETTINGS);
+      localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(INITIAL_SETTINGS));
       return INITIAL_SETTINGS;
     }
     const parsed: OfficeSettings = JSON.parse(raw);
@@ -597,7 +617,7 @@ export function loadSettings(): OfficeSettings {
             : INITIAL_SETTINGS.allowedOfficeIsps,
         allowAdminBypassIpLock: parsed.allowAdminBypassIpLock ?? true,
       };
-      saveSettings(upgraded);
+      localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(upgraded));
       return upgraded;
     }
     return parsed;
