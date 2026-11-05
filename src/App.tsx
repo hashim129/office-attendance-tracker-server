@@ -109,16 +109,16 @@ export default function App() {
       setCurrentClientIsp(net.isp);
     });
 
-    // Sync with Windows Server backend (/api/db) if available
-    void syncDatabaseFromServer().then((updated) => {
+    // Sync with Cloud / Windows Server backend (/api/db) immediately on boot
+    void syncDatabaseFromServer(true).then((updated) => {
       if (updated) refreshFromLocal();
     });
 
     const syncInterval = setInterval(() => {
-      void syncDatabaseFromServer().then((updated) => {
+      void syncDatabaseFromServer(false).then((updated) => {
         if (updated) refreshFromLocal();
       });
-    }, 8000);
+    }, 4000);
 
     const ipInterval = setInterval(() => {
       void detectClientNetwork().then((net) => {
