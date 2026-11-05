@@ -98,343 +98,31 @@ export const INITIAL_EMPLOYEES: Employee[] = [
   {
     id: 'emp-101',
     employeeCode: 'EMP-101',
-    name: 'Sarah Jenkins',
+    name: 'Office Administrator',
     email: 'admin@office.local',
     role: 'admin',
     pin: '1234',
-    department: 'Human Resources',
-    designation: 'HR Operations Lead & Admin',
-    shiftId: 'shift-std',
-    phone: '+1 (555) 234-5678',
-    hourlyRate: 48.0,
-    isActive: true,
-    joinedDate: '2023-01-15',
-    avatarSeed: 'sarah',
-  },
-  {
-    id: 'emp-102',
-    employeeCode: 'EMP-102',
-    name: 'David Miller',
-    email: 'david@office.local',
-    role: 'admin',
-    pin: '5555',
     department: 'Management',
-    designation: 'Operations Director',
+    designation: 'System Administrator',
     shiftId: 'shift-std',
-    phone: '+1 (555) 345-6789',
-    hourlyRate: 55.0,
+    phone: '',
+    hourlyRate: 50.0,
     isActive: true,
-    joinedDate: '2022-06-01',
-    avatarSeed: 'david',
-  },
-  {
-    id: 'emp-103',
-    employeeCode: 'EMP-103',
-    name: 'Michael Chang',
-    email: 'michael@office.local',
-    role: 'employee',
-    pin: '1001',
-    department: 'Engineering',
-    designation: 'Senior Software Engineer',
-    shiftId: 'shift-std',
-    phone: '+1 (555) 456-7890',
-    hourlyRate: 42.5,
-    isActive: true,
-    joinedDate: '2023-03-20',
-    avatarSeed: 'michael',
-  },
-  {
-    id: 'emp-104',
-    employeeCode: 'EMP-104',
-    name: 'Emily Watson',
-    email: 'emily@office.local',
-    role: 'employee',
-    pin: '1002',
-    department: 'Product & Design',
-    designation: 'Lead UI/UX Designer',
-    shiftId: 'shift-std',
-    phone: '+1 (555) 567-8901',
-    hourlyRate: 40.0,
-    isActive: true,
-    joinedDate: '2023-05-10',
-    avatarSeed: 'emily',
-  },
-  {
-    id: 'emp-105',
-    employeeCode: 'EMP-105',
-    name: 'Robert Taylor',
-    email: 'robert@office.local',
-    role: 'employee',
-    pin: '1003',
-    department: 'Engineering',
-    designation: 'Systems Infrastructure Engineer',
-    shiftId: 'shift-early',
-    phone: '+1 (555) 678-9012',
-    hourlyRate: 44.0,
-    isActive: true,
-    joinedDate: '2023-08-01',
-    avatarSeed: 'robert',
-  },
-  {
-    id: 'emp-106',
-    employeeCode: 'EMP-106',
-    name: 'Priya Patel',
-    email: 'priya@office.local',
-    role: 'employee',
-    pin: '1004',
-    department: 'Quality Assurance',
-    designation: 'QA Automation Lead',
-    shiftId: 'shift-std',
-    phone: '+1 (555) 789-0123',
-    hourlyRate: 38.0,
-    isActive: true,
-    joinedDate: '2023-11-15',
-    avatarSeed: 'priya',
-  },
-  {
-    id: 'emp-107',
-    employeeCode: 'EMP-107',
-    name: 'Lucas Vance',
-    email: 'lucas@office.local',
-    role: 'employee',
-    pin: '1005',
-    department: 'Finance',
-    designation: 'Corporate Financial Analyst',
-    shiftId: 'shift-std',
-    phone: '+1 (555) 890-1234',
-    hourlyRate: 39.5,
-    isActive: true,
-    joinedDate: '2024-02-01',
-    avatarSeed: 'lucas',
-  },
-  {
-    id: 'emp-108',
-    employeeCode: 'EMP-108',
-    name: 'Jessica Brooks',
-    email: 'jessica@office.local',
-    role: 'employee',
-    pin: '1006',
-    department: 'Marketing',
-    designation: 'Growth & Content Specialist',
-    shiftId: 'shift-flex',
-    phone: '+1 (555) 901-2345',
-    hourlyRate: 36.0,
-    isActive: true,
-    joinedDate: '2024-04-12',
-    avatarSeed: 'jessica',
+    joinedDate: '2026-01-01',
+    avatarSeed: 'admin',
   },
 ];
 
-export const INITIAL_LEAVES: LeaveRequest[] = [
-  {
-    id: 'leave-1',
-    employeeId: 'emp-103', // Michael
-    leaveType: 'sick',
-    startDate: '2026-10-20',
-    endDate: '2026-10-21',
-    totalDays: 2,
-    reason: 'Severe seasonal flu with fever; medical rest recommended.',
-    status: 'approved',
-    appliedAt: '2026-10-19T18:30:00.000Z',
-    reviewedBy: 'emp-101',
-    reviewNote: 'Approved. Get well soon Michael.',
-  },
-  {
-    id: 'leave-2',
-    employeeId: 'emp-104', // Emily
-    leaveType: 'annual',
-    startDate: '2026-11-16',
-    endDate: '2026-11-20',
-    totalDays: 5,
-    reason: 'Family vacation scheduled in advance; project handoff complete.',
-    status: 'pending',
-    appliedAt: '2026-11-01T10:15:00.000Z',
-  },
-  {
-    id: 'leave-3',
-    employeeId: 'emp-107', // Lucas
-    leaveType: 'casual',
-    startDate: '2026-11-10',
-    endDate: '2026-11-10',
-    totalDays: 1,
-    reason: 'Personal administrative errand at municipal office.',
-    status: 'pending',
-    appliedAt: '2026-11-02T08:00:00.000Z',
-  },
-];
+export const INITIAL_LEAVES: LeaveRequest[] = [];
 
 /**
- * Generate historical sample attendance data for past 10 working days plus today
+ * Generate historical attendance records (clean: no fake dummy data)
  */
 export function generateInitialAttendanceRecords(): AttendanceRecord[] {
-  const records: AttendanceRecord[] = [];
-  const today = new Date();
-
-  // Create historical records for each employee across past 10 days
-  for (let i = 10; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const dayOfWeek = d.getDay();
-
-    // Skip Sundays (0) and Saturdays (6)
-    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
-
-    const dateStr = d.toISOString().split('T')[0];
-    const dayName = getDayName(d);
-
-    INITIAL_EMPLOYEES.forEach((emp, empIdx) => {
-      // Find shift
-      const shift = INITIAL_SHIFTS.find((s) => s.id === emp.shiftId) || INITIAL_SHIFTS[0];
-
-      if (i === 0) {
-        // Today's attendance - simulate dynamic active states!
-        // emp 101 (Sarah): Clocked In at 08:50 AM, no checkout yet
-        // emp 103 (Michael): Clocked In at 09:05 AM, currently on lunch break
-        // emp 104 (Emily): Clocked In at 09:22 AM (Late), no checkout yet
-        // emp 105 (Robert): Clocked In at 07:55 AM, Clocked Out at 16:15 PM (completed shift)
-        // emp 106 (Priya): Clocked In at 08:58 AM
-        // emp 107 (Lucas): Absent/Not yet clocked in
-        // emp 108 (Jessica): Clocked In at 09:55 AM (Flex)
-
-        if (emp.id === 'emp-101') {
-          records.push({
-            id: `att-${dateStr}-${emp.id}`,
-            employeeId: emp.id,
-            date: dateStr,
-            day: dayName,
-            timeIn: '08:50:12',
-            breaks: [],
-            totalWorkedMinutes: 0,
-            regularMinutes: 0,
-            overtimeMinutes: 0,
-            status: 'present',
-            notes: 'On duty',
-          });
-        } else if (emp.id === 'emp-103') {
-          records.push({
-            id: `att-${dateStr}-${emp.id}`,
-            employeeId: emp.id,
-            date: dateStr,
-            day: dayName,
-            timeIn: '09:05:44',
-            breaks: [{ id: 'b-today-1', start: '12:30:00', type: 'lunch' }],
-            totalWorkedMinutes: 0,
-            regularMinutes: 0,
-            overtimeMinutes: 0,
-            status: 'present',
-            notes: 'Lunch break active',
-          });
-        } else if (emp.id === 'emp-104') {
-          records.push({
-            id: `att-${dateStr}-${emp.id}`,
-            employeeId: emp.id,
-            date: dateStr,
-            day: dayName,
-            timeIn: '09:24:18', // after 09:15 grace
-            breaks: [],
-            totalWorkedMinutes: 0,
-            regularMinutes: 0,
-            overtimeMinutes: 0,
-            status: 'late',
-            notes: 'Traffic delay on freeway',
-          });
-        } else if (emp.id === 'emp-105') {
-          const worked = calculateWorkedMinutes('07:55:00', '16:15:00', [
-            { id: 'b1', start: '12:00:00', end: '12:45:00', type: 'lunch' },
-          ]);
-          records.push({
-            id: `att-${dateStr}-${emp.id}`,
-            employeeId: emp.id,
-            date: dateStr,
-            day: dayName,
-            timeIn: '07:55:00',
-            timeOut: '16:15:00',
-            breaks: [{ id: 'b1', start: '12:00:00', end: '12:45:00', type: 'lunch' }],
-            totalWorkedMinutes: worked.totalWorkedMinutes,
-            regularMinutes: worked.regularMinutes,
-            overtimeMinutes: worked.overtimeMinutes,
-            status: 'present',
-          });
-        } else if (emp.id === 'emp-106') {
-          records.push({
-            id: `att-${dateStr}-${emp.id}`,
-            employeeId: emp.id,
-            date: dateStr,
-            day: dayName,
-            timeIn: '08:58:30',
-            breaks: [],
-            totalWorkedMinutes: 0,
-            regularMinutes: 0,
-            overtimeMinutes: 0,
-            status: 'present',
-          });
-        } else if (emp.id === 'emp-108') {
-          records.push({
-            id: `att-${dateStr}-${emp.id}`,
-            employeeId: emp.id,
-            date: dateStr,
-            day: dayName,
-            timeIn: '09:55:10',
-            breaks: [],
-            totalWorkedMinutes: 0,
-            regularMinutes: 0,
-            overtimeMinutes: 0,
-            status: 'present',
-          });
-        }
-        return;
-      }
-
-      // Past days
-      // Randomize realistic arrival variation around shift time
-      const isLate = (i + empIdx) % 7 === 0;
-      let timeInHour = parseInt(shift.startTime.split(':')[0], 10);
-      let timeInMin = isLate ? 25 : Math.floor((empIdx * 3 + i * 2) % 12);
-      if (timeInMin < 0) timeInMin = 0;
-
-      const timeInStr = `${timeInHour.toString().padStart(2, '0')}:${timeInMin.toString().padStart(2, '0')}:00`;
-
-      // Departure around shift end (some with overtime)
-      let timeOutHour = parseInt(shift.endTime.split(':')[0], 10);
-      const hasOvertime = (i * 2 + empIdx) % 4 === 0;
-      let timeOutMin = hasOvertime ? 45 : Math.floor((empIdx * 4) % 15);
-      if (hasOvertime) timeOutHour += 1;
-
-      const timeOutStr = `${timeOutHour.toString().padStart(2, '0')}:${timeOutMin.toString().padStart(2, '0')}:00`;
-
-      const breaks = [
-        {
-          id: `b-${dateStr}-${emp.id}`,
-          start: '12:30:00',
-          end: '13:15:00',
-          type: 'lunch' as const,
-        },
-      ];
-
-      const worked = calculateWorkedMinutes(timeInStr, timeOutStr, breaks, shift.expectedHours);
-      const late = isLateArrival(timeInStr, shift);
-
-      records.push({
-        id: `att-${dateStr}-${emp.id}`,
-        employeeId: emp.id,
-        date: dateStr,
-        day: dayName,
-        timeIn: timeInStr,
-        timeOut: timeOutStr,
-        breaks,
-        totalWorkedMinutes: worked.totalWorkedMinutes,
-        regularMinutes: worked.regularMinutes,
-        overtimeMinutes: worked.overtimeMinutes,
-        status: late ? 'late' : 'present',
-        notes: hasOvertime ? 'Project sprint deployment' : undefined,
-      });
-    });
-  }
-
-  return records;
+  return [];
 }
 
-// Server Sync Helper (for standalone .exe and Express server)
+// Server Sync Helper (for standalone .exe, Express server, and Vercel Gist DB)
 let isSyncingFromServer = false;
 
 const STORAGE_KEY_UPDATED_AT = 'office_attend_updated_at_v1';
@@ -443,21 +131,28 @@ export async function pushDatabaseToServer(): Promise<void> {
   if (isSyncingFromServer) return;
   try {
     const nowIso = new Date().toISOString();
-    localStorage.setItem(STORAGE_KEY_UPDATED_AT, nowIso);
     const payload = {
       version: '1.0',
       updatedAt: nowIso,
       settings: JSON.parse(localStorage.getItem(STORAGE_KEY_SETTINGS) || 'null') || INITIAL_SETTINGS,
       shifts: JSON.parse(localStorage.getItem(STORAGE_KEY_SHIFTS) || 'null') || INITIAL_SHIFTS,
       employees: JSON.parse(localStorage.getItem(STORAGE_KEY_EMPLOYEES) || 'null') || INITIAL_EMPLOYEES,
-      attendance: JSON.parse(localStorage.getItem(STORAGE_KEY_ATTENDANCE) || 'null') || generateInitialAttendanceRecords(),
-      leaves: JSON.parse(localStorage.getItem(STORAGE_KEY_LEAVES) || 'null') || INITIAL_LEAVES,
+      attendance: JSON.parse(localStorage.getItem(STORAGE_KEY_ATTENDANCE) || 'null') || [],
+      leaves: JSON.parse(localStorage.getItem(STORAGE_KEY_LEAVES) || 'null') || [],
     };
-    await fetch(`/api/db?t=${Date.now()}`, {
+    const res = await fetch(`/api/db?t=${Date.now()}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.updatedAt) {
+        localStorage.setItem(STORAGE_KEY_UPDATED_AT, data.updatedAt);
+      } else {
+        localStorage.setItem(STORAGE_KEY_UPDATED_AT, nowIso);
+      }
+    }
   } catch {
     // Graceful fallback if running without backend API
   }
@@ -470,14 +165,7 @@ export async function syncDatabaseFromServer(forceAccept = false): Promise<boole
     const data = await res.json();
     if (data && Array.isArray(data.employees) && Array.isArray(data.attendance)) {
       const localUpdatedAt = localStorage.getItem(STORAGE_KEY_UPDATED_AT);
-      // Always accept server data if forceAccept is true, or if local has no timestamp yet,
-      // or if server updatedAt is newer/different
-      if (
-        !forceAccept &&
-        localUpdatedAt &&
-        data.updatedAt &&
-        new Date(data.updatedAt).getTime() < new Date(localUpdatedAt).getTime()
-      ) {
+      if (!forceAccept && localUpdatedAt && data.updatedAt && data.updatedAt === localUpdatedAt) {
         return false;
       }
 
@@ -492,9 +180,6 @@ export async function syncDatabaseFromServer(forceAccept = false): Promise<boole
       if (data.leaves) localStorage.setItem(STORAGE_KEY_LEAVES, JSON.stringify(data.leaves));
       isSyncingFromServer = false;
       return true;
-    } else if (data && data.empty) {
-      // Server has no database file yet; seed it with current local data
-      await pushDatabaseToServer();
     }
     return false;
   } catch {
