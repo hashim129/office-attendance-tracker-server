@@ -199,11 +199,17 @@ export const PunchClockTab: React.FC<PunchClockTabProps> = ({
       {/* Top Banner: Welcome & Live Windows Clock */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-xs border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-6">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-            <Calendar className="w-3.5 h-3.5" />
-            <span>{formattedDate}</span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-emerald-100/90 dark:bg-emerald-950/80 border-2 border-emerald-400 dark:border-emerald-600 shadow-2xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-black text-emerald-900 dark:text-emerald-200">
+              {formattedDate}
+            </span>
+            <span className="text-emerald-500 font-bold">•</span>
+            <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">
+              {dayName}
+            </span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-2">
             Welcome back, {currentUser.name}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -219,8 +225,8 @@ export const PunchClockTab: React.FC<PunchClockTabProps> = ({
           <div className="text-3xl sm:text-4xl font-mono font-bold tracking-wider text-blue-400 mt-0.5 tabular-nums">
             {formattedDigitalClock}
           </div>
-          <span className="text-[11px] text-slate-400 mt-0.5 font-medium">
-            {dayName} · Auto-synchronized
+          <span className="text-[11px] text-emerald-400 font-bold mt-1 tracking-wide">
+            {dayName} · Live Sync
           </span>
         </div>
       </div>
