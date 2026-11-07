@@ -22,7 +22,9 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
       case 'my-attendance':
         return 'My Attendance & Personal Stats';
       case 'team-attendance':
-        return 'Office Team Attendance & Live Roster';
+        return currentUser.role === 'accounts'
+          ? 'Attendance Verification & Audit'
+          : 'Office Team Attendance & Live Roster';
       case 'employees':
         return 'Staff Directory & Management';
       case 'shifts':
@@ -76,10 +78,12 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                 className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded ${
                   currentUser.role === 'admin'
                     ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300'
+                    : currentUser.role === 'accounts'
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
                     : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
                 }`}
               >
-                {currentUser.role}
+                {currentUser.role === 'accounts' ? 'Accounts Officer' : currentUser.role}
               </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
