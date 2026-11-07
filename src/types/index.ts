@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'employee';
+export type Role = 'admin' | 'employee' | 'accounts';
 
 export type AttendanceStatus = 'present' | 'late' | 'half_day' | 'on_leave' | 'absent';
 
@@ -10,6 +10,14 @@ export interface BreakRecord {
   end?: string;   // HH:mm:ss or ISO
   type: BreakType;
   durationMinutes?: number;
+}
+
+export interface VerificationInfo {
+  verified: boolean;
+  verifiedAt?: string;
+  verifiedByName?: string;
+  verifiedById?: string;
+  note?: string;
 }
 
 export interface AttendanceRecord {
@@ -31,6 +39,9 @@ export interface AttendanceRecord {
   clientIp?: string;
   deviceId?: string;
   deviceName?: string;
+  isAutoPunchedOut?: boolean;
+  adminVerification?: VerificationInfo;
+  accountsVerification?: VerificationInfo;
 }
 
 export interface ShiftSchedule {
