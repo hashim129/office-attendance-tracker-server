@@ -153,6 +153,69 @@ async function writeToGist(token, dbObj) {
   return res.ok;
 }
 
+function autoCloseForgottenRecords(attendanceList) {
+  if (!Array.isArray(attendanceList)) return { records: [], changed: false };
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const day = now.getDate().toString().padStart(2, '0');
+  const todayStr = `${year}-${month}-${day}`;
+  const nowTime = now.toTimeString().split(' ')[0];
+
+  let changed = false;
+  const records = attendanceList.map((rec) => {
+    if (rec.timeIn && !rec.timeOut) {
+      const isPastDay = rec.date < todayStr;
+      const isPastMidnightToday = rec.date === todayStr && nowTime >= '23:59:00';
+      if (isPastDay || isPastMidnightToday) {
+        changed = true;
+        const autoOutTime = '23:59:00';
+        const updatedBreaks = (rec.breaks || []).map((b) => (!b.end ? { ...b, end: autoOutTime } : b));
+
+        const parseMins = (t) => {
+          if (!t) return 0;
+          const [h, m] = t.split(':').map(Number);
+          return (h || 0) * 60 + (m || 0);
+        };
+        const inMins = parseMins(rec.timeIn);
+        const outMins = parseMins(autoOutTime);
+        const diff = Math.max(0, outMins - inMins);
+        let breakMins = 0;
+        for (const b of updatedBreaks) {
+          if (b.start && b.end) {
+            breakMins += Math.max(0, parseMins(b.end) - parseMins(b.start));
+          }
+        }
+        const netWorked = Math.max(0, diff - breakMins);
+        const regular = Math.min(netWorked, 480);
+        const overtime = Math.max(0, netWorked - 480);
+
+        const existingNotes = rec.notes ? rec.notes.trim() : '';
+        const remark = 'Auto system Punched out';
+        const finalNotes = existingNotes
+          ? existingNotes.includes(remark)
+            ? existingNotes
+            : `${existingNotes} · ${remark}`
+          : remark;
+
+        return {
+          ...rec,
+          timeOut: autoOutTime,
+          breaks: updatedBreaks,
+          totalWorkedMinutes: netWorked,
+          regularMinutes: regular,
+          overtimeMinutes: overtime,
+          notes: finalNotes,
+          isAutoPunchedOut: true,
+        };
+      }
+    }
+    return rec;
+  });
+
+  return { records, changed };
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
@@ -168,6 +231,17 @@ export default async function handler(req, res) {
         await writeToGist(token, DEFAULT_DB);
         current = DEFAULT_DB;
       }
+
+      // Auto-close any forgotten records from past days or past 23:59:00
+      if (Array.isArray(current.attendance)) {
+        const { records: closedRecords, changed } = autoCloseForgottenRecords(current.attendance);
+        if (changed) {
+          current.attendance = closedRecords;
+          current.updatedAt = new Date().toISOString();
+          void writeToGist(token, current);
+        }
+      }
+
       return res.status(200).json(current);
     }
 
@@ -234,6 +308,9 @@ export default async function handler(req, res) {
               notes: a.notes !== undefined ? a.notes : existing.notes,
               deviceId: a.deviceId || existing.deviceId,
               deviceName: a.deviceName || existing.deviceName,
+              isAutoPunchedOut: a.isAutoPunchedOut !== undefined ? a.isAutoPunchedOut : existing.isAutoPunchedOut,
+              adminVerification: a.adminVerification !== undefined ? a.adminVerification : existing.adminVerification,
+              accountsVerification: a.accountsVerification !== undefined ? a.accountsVerification : existing.accountsVerification,
               breaks:
                 Array.isArray(a.breaks) && a.breaks.length >= (existing.breaks?.length || 0)
                   ? a.breaks
@@ -242,7 +319,8 @@ export default async function handler(req, res) {
           }
         }
       }
-      const finalAttendance = Array.from(attMap.values());
+      const rawAttendance = Array.from(attMap.values());
+      const { records: finalAttendance } = autoCloseForgottenRecords(rawAttendance);
 
       // Merge leaves by ID
       const leaveMap = new Map();
