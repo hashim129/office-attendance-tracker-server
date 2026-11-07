@@ -3,6 +3,7 @@ import {
   ActiveDesktopTab,
   AppMode,
   AttendanceRecord,
+  CeoComment,
   Employee,
   LeaveRequest,
   OfficeSettings,
@@ -11,6 +12,7 @@ import {
 import {
   clearSession,
   loadAttendanceRecords,
+  loadCeoComments,
   loadEmployees,
   loadLeaves,
   loadSavedMode,
@@ -18,6 +20,7 @@ import {
   loadSettings,
   loadShifts,
   saveAttendanceRecords,
+  saveCeoComments,
   saveEmployees,
   saveLeaves,
   saveMode,
@@ -62,6 +65,7 @@ export default function App() {
   const [shifts, setShifts] = useState<ShiftSchedule[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [ceoComments, setCeoComments] = useState<CeoComment[]>([]);
   const [settings, setSettings] = useState<OfficeSettings>(loadSettings());
   const [currentClientIp, setCurrentClientIp] = useState<string>('Detecting...');
   const [currentClientIsp, setCurrentClientIsp] = useState<string>('Detecting...');
@@ -88,6 +92,7 @@ export default function App() {
       const loadedShifts = loadShifts();
       let loadedRecords = loadAttendanceRecords();
       const loadedLeaves = loadLeaves();
+      const loadedComments = loadCeoComments();
       const loadedSettings = loadSettings();
 
       // Automatically punch out any forgotten punches at 11:59 PM
@@ -101,6 +106,7 @@ export default function App() {
       setShifts(loadedShifts);
       setRecords(loadedRecords);
       setLeaves(loadedLeaves);
+      setCeoComments(loadedComments);
       setSettings(loadedSettings);
 
       const session = loadSession();
@@ -473,6 +479,26 @@ export default function App() {
     saveAttendanceRecords(nextRecords);
   };
 
+  const handleAddCeoComment = (commentData: Omit<CeoComment, 'id' | 'createdAt'>) => {
+    const newComment: CeoComment = {
+      ...commentData,
+      id: `ceo-note-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      createdAt: new Date().toISOString(),
+      isRead: false,
+    };
+    const nextComments = [newComment, ...ceoComments];
+    setCeoComments(nextComments);
+    saveCeoComments(nextComments);
+  };
+
+  const handleMarkCeoCommentRead = (commentId: string) => {
+    const nextComments = ceoComments.map((c) =>
+      c.id === commentId ? { ...c, isRead: true } : c
+    );
+    setCeoComments(nextComments);
+    saveCeoComments(nextComments);
+  };
+
   const handleUpdateSettings = (newSettings: OfficeSettings) => {
     setSettings(newSettings);
     saveSettings(newSettings);
@@ -483,6 +509,7 @@ export default function App() {
     setShifts(loadShifts());
     setRecords(loadAttendanceRecords());
     setLeaves(loadLeaves());
+    setCeoComments(loadCeoComments());
     setSettings(loadSettings());
   };
 
@@ -542,6 +569,8 @@ export default function App() {
             activeTab={activeTab}
             onLogout={handleLogout}
             onSwitchToKiosk={() => handleToggleMode('kiosk')}
+            ceoComments={ceoComments}
+            onMarkCeoCommentRead={handleMarkCeoCommentRead}
           />
 
           {/* Body Split: Sidebar + Active Viewport */}
@@ -568,6 +597,8 @@ export default function App() {
                   onUpdatePunchNote={handleUpdatePunchNote}
                   settings={settings}
                   currentClientIp={currentClientIp}
+                  ceoComments={ceoComments}
+                  onMarkCeoCommentRead={handleMarkCeoCommentRead}
                 />
               )}
 
@@ -578,6 +609,8 @@ export default function App() {
                   shifts={shifts}
                   settings={settings}
                   onOpenPrintModal={handleOpenPrintModal}
+                  ceoComments={ceoComments}
+                  onMarkCeoCommentRead={handleMarkCeoCommentRead}
                 />
               )}
 
@@ -601,10 +634,12 @@ export default function App() {
                   onUpdateRecord={handleUpdateRecord}
                   adminUser={currentUser}
                   currentUser={currentUser}
+                  ceoComments={ceoComments}
+                  onAddCeoComment={handleAddCeoComment}
                 />
               )}
 
-              {currentUser.role === 'admin' && activeTab === 'employees' && (
+              {(currentUser.role === 'admin' || currentUser.role === 'ceo') && activeTab === 'employees' && (
                 <EmployeesDirectoryTab
                   employees={employees}
                   shifts={shifts}
@@ -623,8 +658,8 @@ export default function App() {
                 />
               )}
 
-              {/* Reports & Payroll - Allowed for Admin and Accounts Officer */}
-              {(currentUser.role === 'admin' || currentUser.role === 'accounts') &&
+              {/* Reports & Payroll - Allowed for Admin, Accounts Officer, and CEO */}
+              {(currentUser.role === 'admin' || currentUser.role === 'accounts' || currentUser.role === 'ceo') &&
                 activeTab === 'reports' && (
                   <ReportsTab
                     employees={employees}
@@ -632,6 +667,8 @@ export default function App() {
                     shifts={shifts}
                     settings={settings}
                     onOpenPrintModal={handleOpenPrintModal}
+                    currentUser={currentUser}
+                    onAddCeoComment={handleAddCeoComment}
                   />
                 )}
 
