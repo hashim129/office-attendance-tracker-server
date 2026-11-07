@@ -410,13 +410,14 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
                 <th className="py-3 px-4 text-right">Worked (Hours)</th>
                 <th className="py-3 px-4 text-right">Overtime</th>
                 <th className="py-3 px-4 text-center">Status</th>
+                <th className="py-3 px-4 text-center">Verification</th>
                 <th className="py-3 px-4">Notes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400">
+                  <td colSpan={11} className="py-12 text-center text-slate-400">
                     No records found for the selected reporting criteria.
                   </td>
                 </tr>
@@ -453,7 +454,14 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
 
                       <td className="py-3 px-4 font-mono font-medium text-slate-700 dark:text-slate-300">
                         {r.timeOut ? (
-                          formatTime12h(r.timeOut)
+                          <div>
+                            <span>{formatTime12h(r.timeOut)}</span>
+                            {r.isAutoPunchedOut && (
+                              <span className="block text-[9px] text-amber-600 dark:text-amber-400 font-sans font-semibold">
+                                Auto 11:59 PM
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-amber-600 dark:text-amber-400 font-sans text-[11px]">
                             In Progress
@@ -489,6 +497,31 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
                             On Time
                           </span>
                         )}
+                      </td>
+
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              r.adminVerification?.verified
+                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                                : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
+                            }`}
+                            title={r.adminVerification?.verified ? `Verified by ${r.adminVerification.verifiedByName}` : 'Admin Unverified'}
+                          >
+                            Admin: {r.adminVerification?.verified ? '✓' : 'Pending'}
+                          </span>
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              r.accountsVerification?.verified
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                                : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
+                            }`}
+                            title={r.accountsVerification?.verified ? `Verified by ${r.accountsVerification.verifiedByName}` : 'Accounts Unverified'}
+                          >
+                            Accounts: {r.accountsVerification?.verified ? '✓' : 'Pending'}
+                          </span>
+                        </div>
                       </td>
 
                       <td className="py-3 px-4 text-slate-500 text-[11px]">
