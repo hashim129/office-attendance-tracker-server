@@ -15,6 +15,7 @@ import {
   Crown,
   MessageSquare,
   Send,
+  Edit3,
 } from 'lucide-react';
 import {
   AttendanceRecord,
@@ -25,9 +26,11 @@ import {
 } from '../../types';
 import {
   calculateBreaksDuration,
+  calculateWorkedMinutes,
   formatMinutesToDecimal,
   formatMinutesToHoursMinutes,
   formatTime12h,
+  getDayName,
 } from '../../lib/attendanceCalculations';
 import { exportAttendanceToCsv } from '../../lib/exportUtils';
 import { Modal } from '../common/Modal';
@@ -40,6 +43,7 @@ interface ReportsTabProps {
   onOpenPrintModal: (employee: Employee | null, filteredRecords: AttendanceRecord[]) => void;
   currentUser?: Employee;
   onAddCeoComment?: (comment: Omit<CeoComment, 'id' | 'createdAt'>) => void;
+  onUpdateRecord?: (updated: AttendanceRecord) => void;
 }
 
 export const ReportsTab: React.FC<ReportsTabProps> = ({
@@ -50,6 +54,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
   onOpenPrintModal,
   currentUser,
   onAddCeoComment,
+  onUpdateRecord,
 }) => {
   const [period, setPeriod] = useState<'month' | 'last_month' | 'all' | 'custom'>('month');
   const [customStart, setCustomStart] = useState<string>('');
@@ -58,6 +63,18 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
   const [selectedEmpId, setSelectedEmpId] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Admin / CEO Punch Adjustment State
+  const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [editWorkingStatus, setEditWorkingStatus] = useState<'working' | 'completed' | 'break' | 'absent'>('working');
+  const [hasPunchIn, setHasPunchIn] = useState<boolean>(true);
+  const [editTimeIn, setEditTimeIn] = useState<string>('09:00:00');
+  const [hasPunchOut, setHasPunchOut] = useState<boolean>(false);
+  const [editTimeOut, setEditTimeOut] = useState<string>('18:00:00');
+  const [editStatus, setEditStatus] = useState<AttendanceRecord['status']>('present');
+  const [editPunchNote, setEditPunchNote] = useState<string>('');
+  const [editAuditReason, setEditAuditReason] = useState<string>('');
 
   // CEO / Management Mention State
   const [mentioningEmployee, setMentioningEmployee] = useState<Employee | null>(null);
@@ -84,6 +101,100 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
     alert(`Directive/Mention successfully sent to ${mentioningEmployee.name}! It will appear in their notifications and dashboard.`);
     setMentioningEmployee(null);
     setMentionMessage('');
+  };
+
+  const handleOpenAdjustment = (rec: AttendanceRecord) => {
+    const emp = employees.find((e) => e.id === rec.employeeId);
+    if (!emp) return;
+    setEditingEmployee(emp);
+    setEditingRecord(rec);
+    const shift = shifts.find((s) => s.id === emp.shiftId) || shifts[0];
+
+    if (rec.timeIn) {
+      setHasPunchIn(true);
+      setEditTimeIn(rec.timeIn);
+      const hasOut = !!rec.timeOut;
+      setHasPunchOut(hasOut);
+      setEditTimeOut(hasOut ? rec.timeOut! : shift.endTime);
+
+      const onBreak = rec.breaks?.some((b) => !b.end);
+      if (onBreak) {
+        setEditWorkingStatus('break');
+      } else if (hasOut) {
+        setEditWorkingStatus('completed');
+      } else {
+        setEditWorkingStatus('working');
+      }
+
+      setEditStatus(rec.status);
+      setEditPunchNote(rec.notes || '');
+      setEditAuditReason(rec.adjustmentNote || '');
+    } else {
+      setHasPunchIn(false);
+      setEditTimeIn(shift.startTime);
+      setHasPunchOut(false);
+      setEditTimeOut(shift.endTime);
+      setEditWorkingStatus('absent');
+      setEditStatus('absent');
+      setEditPunchNote('');
+      setEditAuditReason('Manual attendance status override by administrator');
+    }
+  };
+
+  const handleSaveAdjustment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEmployee || !editingRecord || !onUpdateRecord) return;
+
+    if (!editAuditReason.trim()) {
+      alert('Please provide an audit reason for modifying official attendance records.');
+      return;
+    }
+
+    const shift = shifts.find((s) => s.id === editingEmployee.shiftId) || shifts[0];
+
+    let finalTimeIn: string = '';
+    let finalTimeOut: string | undefined = undefined;
+    let finalStatus: AttendanceRecord['status'] = editStatus;
+
+    if (editWorkingStatus === 'absent' || !hasPunchIn) {
+      finalTimeIn = '';
+      finalTimeOut = undefined;
+      finalStatus = 'absent';
+    } else {
+      finalTimeIn = editTimeIn.trim() || shift.startTime;
+
+      if (editWorkingStatus === 'working' || !hasPunchOut) {
+        finalTimeOut = undefined;
+        if (finalStatus === 'absent') finalStatus = 'present';
+      } else if (editWorkingStatus === 'completed' || hasPunchOut) {
+        finalTimeOut = editTimeOut.trim() || shift.endTime;
+        if (finalStatus === 'absent') finalStatus = 'present';
+      }
+    }
+
+    const worked = finalTimeIn && finalTimeOut
+      ? calculateWorkedMinutes(finalTimeIn, finalTimeOut, editingRecord?.breaks || [], shift.expectedHours)
+      : finalTimeIn
+      ? calculateWorkedMinutes(finalTimeIn, undefined, editingRecord?.breaks || [], shift.expectedHours)
+      : { totalWorkedMinutes: 0, regularMinutes: 0, overtimeMinutes: 0 };
+
+    const updated: AttendanceRecord = {
+      ...editingRecord,
+      timeIn: finalTimeIn,
+      timeOut: finalTimeOut,
+      totalWorkedMinutes: worked.totalWorkedMinutes,
+      regularMinutes: worked.regularMinutes,
+      overtimeMinutes: worked.overtimeMinutes,
+      status: finalStatus,
+      notes: editPunchNote.trim() || undefined,
+      isManuallyAdjusted: true,
+      adjustmentNote: editAuditReason.trim(),
+      adjustedBy: `${currentUser?.name || 'Administrator'} (${currentUser?.employeeCode || currentUser?.role?.toUpperCase() || 'ADMIN'})`,
+    };
+
+    onUpdateRecord(updated);
+    setEditingRecord(null);
+    setEditingEmployee(null);
   };
 
   const empMap = useMemo(() => new Map(employees.map((e) => [e.id, e])), [employees]);
@@ -592,16 +703,28 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
 
                       {(currentUser?.role === 'ceo' || currentUser?.role === 'admin') && (
                         <td className="py-3 px-4 text-right">
-                          {emp && onAddCeoComment && (
-                            <button
-                              onClick={() => handleOpenMentionModal(emp)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-500 hover:bg-amber-600 text-white shadow-2xs transition-colors cursor-pointer"
-                              title={`Send executive directive or comment to ${emp.name}`}
-                            >
-                              <MessageSquare className="w-3 h-3" />
-                              <span>Mention</span>
-                            </button>
-                          )}
+                          <div className="flex items-center justify-end gap-1.5">
+                            {onUpdateRecord && (
+                              <button
+                                onClick={() => handleOpenAdjustment(r)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors cursor-pointer"
+                                title="Edit employee punch in, punch out, or working status"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                                <span>Edit Punch</span>
+                              </button>
+                            )}
+                            {emp && onAddCeoComment && (
+                              <button
+                                onClick={() => handleOpenMentionModal(emp)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-500 hover:bg-amber-600 text-white shadow-2xs transition-colors cursor-pointer"
+                                title={`Send executive directive or comment to ${emp.name}`}
+                              >
+                                <MessageSquare className="w-3 h-3" />
+                                <span>Mention</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -669,6 +792,347 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Send Mention Notification</span>
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Comprehensive Manual Punch & Working Status Adjustment Modal */}
+      {editingEmployee && editingRecord && (
+        <Modal
+          isOpen={!!editingEmployee}
+          onClose={() => {
+            setEditingEmployee(null);
+            setEditingRecord(null);
+          }}
+          title={`Edit Attendance & Punch Log: ${editingEmployee.name}`}
+          subtitle={`Employee Code: ${editingEmployee.employeeCode} · Shift: ${(shifts.find((s) => s.id === editingEmployee.shiftId) || shifts[0]).name} · Date: ${editingRecord.date} (${getDayName(editingRecord.date)})`}
+        >
+          <form onSubmit={handleSaveAdjustment} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+            {/* 1. Working Status Selector (4 Distinct Options) */}
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-2">
+              <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                1. Select Employee Working Status
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {/* Option: Currently Working */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditWorkingStatus('working');
+                    setHasPunchIn(true);
+                    setHasPunchOut(false);
+                    if (editStatus === 'absent') setEditStatus('present');
+                  }}
+                  className={`p-2.5 rounded-lg border text-left flex items-start gap-2 transition-all cursor-pointer ${
+                    editWorkingStatus === 'working'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-950 dark:text-emerald-200 shadow-2xs ring-1 ring-emerald-400'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 mt-1 shrink-0 animate-pulse" />
+                  <div>
+                    <p className="text-xs font-bold">Currently Working</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Clocked In · Shift In Progress</p>
+                  </div>
+                </button>
+
+                {/* Option: Shift Ended / Punched Out */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditWorkingStatus('completed');
+                    setHasPunchIn(true);
+                    setHasPunchOut(true);
+                    if (editStatus === 'absent') setEditStatus('present');
+                  }}
+                  className={`p-2.5 rounded-lg border text-left flex items-start gap-2 transition-all cursor-pointer ${
+                    editWorkingStatus === 'completed'
+                      ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-500 text-blue-950 dark:text-blue-200 shadow-2xs ring-1 ring-blue-400'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500 mt-1 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold">Shift Completed</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Punched Out · Shift Finished</p>
+                  </div>
+                </button>
+
+                {/* Option: On Break */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditWorkingStatus('break');
+                    setHasPunchIn(true);
+                    setHasPunchOut(false);
+                    if (editStatus === 'absent') setEditStatus('present');
+                  }}
+                  className={`p-2.5 rounded-lg border text-left flex items-start gap-2 transition-all cursor-pointer ${
+                    editWorkingStatus === 'break'
+                      ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-500 text-amber-950 dark:text-amber-200 shadow-2xs ring-1 ring-amber-400'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 mt-1 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold">On Lunch / Tea Break</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Temporary Pause in Shift</p>
+                  </div>
+                </button>
+
+                {/* Option: Absent / Not In */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditWorkingStatus('absent');
+                    setHasPunchIn(false);
+                    setHasPunchOut(false);
+                    setEditStatus('absent');
+                  }}
+                  className={`p-2.5 rounded-lg border text-left flex items-start gap-2 transition-all cursor-pointer ${
+                    editWorkingStatus === 'absent'
+                      ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-500 text-rose-950 dark:text-rose-200 shadow-2xs ring-1 ring-rose-400'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 mt-1 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold">Absent / Not In</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Clear punches & mark absent</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Separate Option to Edit Punch In */}
+            <div className={`p-3.5 rounded-xl border transition-all ${
+              hasPunchIn
+                ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700'
+                : 'bg-slate-100/70 dark:bg-slate-900/40 border-dashed border-slate-300 dark:border-slate-700 opacity-70'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hasPunchIn}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setHasPunchIn(checked);
+                      if (!checked) {
+                        setEditWorkingStatus('absent');
+                        setHasPunchOut(false);
+                      } else if (editWorkingStatus === 'absent') {
+                        setEditWorkingStatus('working');
+                      }
+                    }}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                    <Sunrise className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>2. Separate Option: Edit Punch In Time</span>
+                  </span>
+                </label>
+                {hasPunchIn ? (
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded">
+                    Punch In Active
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-2 py-0.5 rounded">
+                    Punch In Disabled (Absent)
+                  </span>
+                )}
+              </div>
+
+              {hasPunchIn && (
+                <div className="space-y-2 mt-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={editTimeIn}
+                      onChange={(e) => setEditTimeIn(e.target.value)}
+                      placeholder="09:00:00"
+                      pattern="^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$"
+                      required={hasPunchIn}
+                      className="flex-1 text-xs font-mono px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const shift = shifts.find((s) => s.id === editingEmployee.shiftId) || shifts[0];
+                        setEditTimeIn(shift.startTime);
+                      }}
+                      className="px-2.5 py-2 text-[11px] font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                      title="Set to scheduled shift start time"
+                    >
+                      Shift Start
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditTimeIn(new Date().toTimeString().slice(0, 8))}
+                      className="px-2.5 py-2 text-[11px] font-medium bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 rounded-lg text-emerald-800 dark:text-emerald-300 transition-colors cursor-pointer"
+                      title="Set to right now"
+                    >
+                      Current Time
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Separate Option to Edit Punch Out */}
+            <div className={`p-3.5 rounded-xl border transition-all ${
+              hasPunchOut
+                ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700'
+                : 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hasPunchOut}
+                    disabled={!hasPunchIn}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setHasPunchOut(checked);
+                      if (checked) {
+                        setEditWorkingStatus('completed');
+                        if (!editTimeOut) {
+                          const shift = shifts.find((s) => s.id === editingEmployee.shiftId) || shifts[0];
+                          setEditTimeOut(shift.endTime);
+                        }
+                      } else {
+                        setEditWorkingStatus('working');
+                      }
+                    }}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer disabled:opacity-50"
+                  />
+                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                    <Sunset className="w-3.5 h-3.5 text-amber-600" />
+                    <span>3. Separate Option: Edit Punch Out Time</span>
+                  </span>
+                </label>
+                {hasPunchOut ? (
+                  <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded">
+                    Punch Out Recorded (Shift Finished)
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Currently Working (No Punch Out)
+                  </span>
+                )}
+              </div>
+
+              {hasPunchOut ? (
+                <div className="space-y-2 mt-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={editTimeOut}
+                      onChange={(e) => setEditTimeOut(e.target.value)}
+                      placeholder="17:00:00"
+                      pattern="^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$"
+                      required={hasPunchOut}
+                      className="flex-1 text-xs font-mono px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const shift = shifts.find((s) => s.id === editingEmployee.shiftId) || shifts[0];
+                        setEditTimeOut(shift.endTime);
+                      }}
+                      className="px-2.5 py-2 text-[11px] font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                      title="Set to scheduled shift end time"
+                    >
+                      Shift End
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditTimeOut(new Date().toTimeString().slice(0, 8))}
+                      className="px-2.5 py-2 text-[11px] font-medium bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 rounded-lg text-amber-800 dark:text-amber-300 transition-colors cursor-pointer"
+                      title="Set to right now"
+                    >
+                      Current Time
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+                  ✓ The punch-out time is intentionally left blank so this employee continues working their shift.
+                </p>
+              )}
+            </div>
+
+            {/* 4. Attendance Classification & Notes */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Attendance Classification
+                </label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value as AttendanceRecord['status'])}
+                  className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100"
+                >
+                  <option value="present">Present (On-Time)</option>
+                  <option value="late">Late Arrival</option>
+                  <option value="half_day">Half Day</option>
+                  <option value="on_leave">On Approved Leave</option>
+                  <option value="absent">Absent</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Punch Note / Remark (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={editPunchNote}
+                  onChange={(e) => setEditPunchNote(e.target.value)}
+                  placeholder="e.g. Worked from branch office"
+                  className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100"
+                />
+              </div>
+            </div>
+
+            {/* 5. Mandatory Audit Note */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Mandatory Reason for Manual Adjustment / Override
+              </label>
+              <textarea
+                value={editAuditReason}
+                onChange={(e) => setEditAuditReason(e.target.value)}
+                placeholder="Required for HR audit: Explain why this punch record or working status is being adjusted."
+                rows={2}
+                required
+                className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-[10px] text-slate-500 mt-1">
+                This modification will be tagged with your administrator signature: <strong>{currentUser?.name || 'Admin'}</strong>
+              </p>
+            </div>
+
+            {/* Form Actions */}
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingEmployee(null);
+                  setEditingRecord(null);
+                }}
+                className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs cursor-pointer"
+              >
+                Save Attendance Adjustment
               </button>
             </div>
           </form>
