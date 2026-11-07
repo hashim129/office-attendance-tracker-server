@@ -10,9 +10,15 @@ import {
   TrendingUp,
   Search,
   Users,
+  Sunrise,
+  Sunset,
+  Crown,
+  MessageSquare,
+  Send,
 } from 'lucide-react';
 import {
   AttendanceRecord,
+  CeoComment,
   Employee,
   OfficeSettings,
   ShiftSchedule,
@@ -24,6 +30,7 @@ import {
   formatTime12h,
 } from '../../lib/attendanceCalculations';
 import { exportAttendanceToCsv } from '../../lib/exportUtils';
+import { Modal } from '../common/Modal';
 
 interface ReportsTabProps {
   employees: Employee[];
@@ -31,6 +38,8 @@ interface ReportsTabProps {
   shifts: ShiftSchedule[];
   settings: OfficeSettings;
   onOpenPrintModal: (employee: Employee | null, filteredRecords: AttendanceRecord[]) => void;
+  currentUser?: Employee;
+  onAddCeoComment?: (comment: Omit<CeoComment, 'id' | 'createdAt'>) => void;
 }
 
 export const ReportsTab: React.FC<ReportsTabProps> = ({
@@ -39,6 +48,8 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
   shifts,
   settings,
   onOpenPrintModal,
+  currentUser,
+  onAddCeoComment,
 }) => {
   const [period, setPeriod] = useState<'month' | 'last_month' | 'all' | 'custom'>('month');
   const [customStart, setCustomStart] = useState<string>('');
@@ -47,6 +58,33 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
   const [selectedEmpId, setSelectedEmpId] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // CEO / Management Mention State
+  const [mentioningEmployee, setMentioningEmployee] = useState<Employee | null>(null);
+  const [mentionMessage, setMentionMessage] = useState<string>('');
+
+  const handleOpenMentionModal = (emp: Employee) => {
+    setMentioningEmployee(emp);
+    setMentionMessage('');
+  };
+
+  const handleSendCeoMention = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mentioningEmployee || !mentionMessage.trim() || !onAddCeoComment) return;
+
+    onAddCeoComment({
+      employeeId: mentioningEmployee.id,
+      employeeName: mentioningEmployee.name,
+      fromName: currentUser?.name || 'Executive Management',
+      fromRole: currentUser?.role || 'ceo',
+      message: mentionMessage.trim(),
+      date: new Date().toISOString().slice(0, 10),
+    });
+
+    alert(`Directive/Mention successfully sent to ${mentioningEmployee.name}! It will appear in their notifications and dashboard.`);
+    setMentioningEmployee(null);
+    setMentionMessage('');
+  };
 
   const empMap = useMemo(() => new Map(employees.map((e) => [e.id, e])), [employees]);
   const departments = useMemo(
@@ -412,12 +450,15 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
                 <th className="py-3 px-4 text-center">Status</th>
                 <th className="py-3 px-4 text-center">Verification</th>
                 <th className="py-3 px-4">Notes</th>
+                {(currentUser?.role === 'ceo' || currentUser?.role === 'admin') && (
+                  <th className="py-3 px-4 text-right">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-slate-400">
+                  <td colSpan={currentUser?.role === 'ceo' || currentUser?.role === 'admin' ? 12 : 11} className="py-12 text-center text-slate-400">
                     No records found for the selected reporting criteria.
                   </td>
                 </tr>
@@ -430,9 +471,17 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
                       key={r.id}
                       className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors"
                     >
-                      <td className="py-3 px-4 font-medium text-slate-900 dark:text-slate-100">
-                        <div>{r.date}</div>
-                        <div className="text-[11px] text-slate-400 font-normal">{r.day}</div>
+                      <td className="py-3 px-4">
+                        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-emerald-50/90 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700/80 shadow-2xs">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          <span className="font-bold text-xs text-emerald-900 dark:text-emerald-200">
+                            {r.date}
+                          </span>
+                          <span className="text-emerald-500 font-bold">•</span>
+                          <strong className="font-black text-xs text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">
+                            {r.day}
+                          </strong>
+                        </div>
                       </td>
 
                       <td className="py-3 px-4">
@@ -448,24 +497,37 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
                         {emp?.department}
                       </td>
 
-                      <td className="py-3 px-4 font-mono font-medium text-slate-700 dark:text-slate-300">
-                        {formatTime12h(r.timeIn)}
+                      <td className="py-3 px-4">
+                        {r.timeIn ? (
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 shadow-2xs font-mono font-bold text-xs">
+                            <Sunrise className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span>{formatTime12h(r.timeIn)}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 font-sans text-xs">—</span>
+                        )}
                       </td>
 
-                      <td className="py-3 px-4 font-mono font-medium text-slate-700 dark:text-slate-300">
+                      <td className="py-3 px-4">
                         {r.timeOut ? (
-                          <div>
-                            <span>{formatTime12h(r.timeOut)}</span>
+                          <div className="inline-flex flex-col">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 shadow-2xs font-mono font-bold text-xs">
+                              <Sunset className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span>{formatTime12h(r.timeOut)}</span>
+                            </div>
                             {r.isAutoPunchedOut && (
-                              <span className="block text-[9px] text-amber-600 dark:text-amber-400 font-sans font-semibold">
+                              <span className="text-[9px] text-amber-600 dark:text-amber-400 font-sans font-semibold mt-0.5">
                                 Auto 11:59 PM
                               </span>
                             )}
                           </div>
-                        ) : (
-                          <span className="text-amber-600 dark:text-amber-400 font-sans text-[11px]">
-                            In Progress
+                        ) : r.timeIn ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-bold text-[11px] animate-pulse">
+                            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                            Working
                           </span>
+                        ) : (
+                          <span className="text-slate-400 font-sans text-xs">—</span>
                         )}
                       </td>
 
@@ -527,6 +589,21 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
                       <td className="py-3 px-4 text-slate-500 text-[11px]">
                         {r.notes || (r.isManuallyAdjusted ? `Adjusted: ${r.adjustmentNote}` : '—')}
                       </td>
+
+                      {(currentUser?.role === 'ceo' || currentUser?.role === 'admin') && (
+                        <td className="py-3 px-4 text-right">
+                          {emp && onAddCeoComment && (
+                            <button
+                              onClick={() => handleOpenMentionModal(emp)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-500 hover:bg-amber-600 text-white shadow-2xs transition-colors cursor-pointer"
+                              title={`Send executive directive or comment to ${emp.name}`}
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                              <span>Mention</span>
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -535,6 +612,68 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
           </table>
         </div>
       </div>
+
+      {/* CEO / Management Mention Modal */}
+      {mentioningEmployee && (
+        <Modal
+          isOpen={!!mentioningEmployee}
+          onClose={() => {
+            setMentioningEmployee(null);
+            setMentionMessage('');
+          }}
+          title={`Executive Mention / Directive: ${mentioningEmployee.name}`}
+          subtitle={`Department: ${mentioningEmployee.department} · Code: ${mentioningEmployee.employeeCode}`}
+        >
+          <form onSubmit={handleSendCeoMention} className="space-y-4">
+            <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-start gap-2.5">
+              <Crown className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-900 dark:text-amber-200">
+                <p className="font-bold">
+                  Sending as {(currentUser?.role || 'ceo').toUpperCase()}: {currentUser?.name || 'Executive'}
+                </p>
+                <p className="mt-0.5 text-amber-700 dark:text-amber-300">
+                  This directive will be delivered immediately to{' '}
+                  <strong>{mentioningEmployee.name}</strong> as a high-priority notification.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Directive / Comment Message
+              </label>
+              <textarea
+                value={mentionMessage}
+                onChange={(e) => setMentionMessage(e.target.value)}
+                placeholder="e.g. Reviewed your performance stats. Great work on meeting punctuality targets!"
+                rows={4}
+                required
+                className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setMentioningEmployee(null);
+                  setMentionMessage('');
+                }}
+                className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-xs cursor-pointer"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Send Mention Notification</span>
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 };
