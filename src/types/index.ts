@@ -1,4 +1,16 @@
-export type Role = 'admin' | 'employee' | 'accounts';
+export type Role = 'admin' | 'employee' | 'accounts' | 'ceo';
+
+export interface CeoComment {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  fromName: string;
+  fromRole: Role;
+  message: string;
+  date: string; // YYYY-MM-DD
+  createdAt: string; // ISO
+  isRead?: boolean;
+}
 
 export type AttendanceStatus = 'present' | 'late' | 'half_day' | 'on_leave' | 'absent';
 
