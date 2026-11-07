@@ -669,6 +669,7 @@ export default function App() {
                     onOpenPrintModal={handleOpenPrintModal}
                     currentUser={currentUser}
                     onAddCeoComment={handleAddCeoComment}
+                    onUpdateRecord={handleUpdateRecord}
                   />
                 )}
 
