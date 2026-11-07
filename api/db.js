@@ -308,6 +308,8 @@ export default async function handler(req, res) {
               notes: a.notes !== undefined ? a.notes : existing.notes,
               deviceId: a.deviceId || existing.deviceId,
               deviceName: a.deviceName || existing.deviceName,
+              isDeviceMismatch: a.isDeviceMismatch !== undefined ? a.isDeviceMismatch : existing.isDeviceMismatch,
+              deviceMismatchReason: a.deviceMismatchReason || existing.deviceMismatchReason,
               isAutoPunchedOut: a.isAutoPunchedOut !== undefined ? a.isAutoPunchedOut : existing.isAutoPunchedOut,
               adminVerification: a.adminVerification !== undefined ? a.adminVerification : existing.adminVerification,
               accountsVerification: a.accountsVerification !== undefined ? a.accountsVerification : existing.accountsVerification,
