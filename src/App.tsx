@@ -4,6 +4,8 @@ import {
   AppMode,
   AttendanceRecord,
   CeoComment,
+  DeviceChangeRequest,
+  DeviceHistoryEntry,
   Employee,
   LeaveRequest,
   OfficeSettings,
@@ -52,6 +54,8 @@ import { LeaveManagementTab } from './components/desktop/LeaveManagementTab';
 import { ReportsTab } from './components/desktop/ReportsTab';
 import { OfficeSettingsTab } from './components/desktop/OfficeSettingsTab';
 import { PrintableTimesheetModal } from './components/desktop/PrintableTimesheetModal';
+import { ChangePasswordModal } from './components/common/ChangePasswordModal';
+import { RequestDeviceChangeModal } from './components/common/RequestDeviceChangeModal';
 import { KioskMode } from './components/kiosk/KioskMode';
 
 export default function App() {
@@ -73,6 +77,10 @@ export default function App() {
   // Current Session & Workspace Navigation
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveDesktopTab>('clock');
+
+  // Password & Device Modals
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState<boolean>(false);
+  const [isRequestDeviceOpen, setIsRequestDeviceOpen] = useState<boolean>(false);
 
   // Printable Timesheet Modal State
   const [printModalState, setPrintModalState] = useState<{
@@ -216,22 +224,9 @@ export default function App() {
       return;
     }
 
-    // Auto-bind device on first punch if not bound yet
+    // Capture device details & detect mismatch
     const { deviceId, deviceLabel } = getDeviceDetails();
-    if (!emp.registeredDeviceId && settings.enforceDeviceBinding !== false) {
-      const updatedEmp: Employee = {
-        ...emp,
-        registeredDeviceId: deviceId,
-        registeredDeviceName: deviceLabel,
-        registeredAt: new Date().toISOString(),
-      };
-      const updatedEmployees = employees.map((e) => (e.id === emp.id ? updatedEmp : e));
-      setEmployees(updatedEmployees);
-      saveEmployees(updatedEmployees);
-      if (currentUser?.id === emp.id) {
-        setCurrentUser(updatedEmp);
-      }
-    }
+    const isMismatch = !!(emp.registeredDeviceId && emp.registeredDeviceId !== deviceId);
 
     let nextRecords = [...records];
 
@@ -244,6 +239,10 @@ export default function App() {
         clientIp: currentClientIp,
         deviceId,
         deviceName: deviceLabel,
+        isDeviceMismatch: isMismatch,
+        deviceMismatchReason: isMismatch
+          ? `Punched from device "${deviceLabel}" instead of approved phone "${emp.registeredDeviceName || 'Registered Phone'}"`
+          : undefined,
       };
     } else {
       const newRec: AttendanceRecord = {
@@ -261,6 +260,10 @@ export default function App() {
         clientIp: currentClientIp,
         deviceId,
         deviceName: deviceLabel,
+        isDeviceMismatch: isMismatch,
+        deviceMismatchReason: isMismatch
+          ? `Punched from device "${deviceLabel}" instead of approved phone "${emp.registeredDeviceName || 'Registered Phone'}"`
+          : undefined,
       };
       nextRecords = [newRec, ...nextRecords];
     }
@@ -315,6 +318,9 @@ export default function App() {
       shift.expectedHours
     );
 
+    const { deviceId, deviceLabel } = getDeviceDetails();
+    const isMismatch = !!(emp?.registeredDeviceId && emp.registeredDeviceId !== deviceId);
+
     const updated: AttendanceRecord = {
       ...currentRec,
       timeOut: nowTime,
@@ -323,6 +329,12 @@ export default function App() {
       regularMinutes: worked.regularMinutes,
       overtimeMinutes: worked.overtimeMinutes,
       notes: notes || currentRec.notes,
+      deviceId: currentRec.deviceId || deviceId,
+      deviceName: currentRec.deviceName || deviceLabel,
+      isDeviceMismatch: currentRec.isDeviceMismatch || isMismatch,
+      deviceMismatchReason:
+        currentRec.deviceMismatchReason ||
+        (isMismatch ? `Punched out from unapproved device "${deviceLabel}"` : undefined),
     };
 
     const nextRecords = [...records];
@@ -415,6 +427,146 @@ export default function App() {
     const nextEmps = employees.filter((e) => e.id !== empId);
     setEmployees(nextEmps);
     saveEmployees(nextEmps);
+  };
+
+  const handleUpdatePin = (employeeId: string, newPin: string) => {
+    const nextEmps = employees.map((e) =>
+      e.id === employeeId ? { ...e, pin: newPin } : e
+    );
+    setEmployees(nextEmps);
+    saveEmployees(nextEmps);
+    if (currentUser?.id === employeeId) {
+      setCurrentUser({ ...currentUser, pin: newPin });
+    }
+  };
+
+  const handleRequestDeviceChange = (
+    employeeId: string,
+    requestedDeviceId: string,
+    requestedDeviceName: string,
+    reason?: string
+  ) => {
+    const emp = employees.find((e) => e.id === employeeId);
+    if (!emp) return;
+
+    const request: DeviceChangeRequest = {
+      id: `devreq-${Date.now()}`,
+      employeeId,
+      employeeName: emp.name,
+      requestedDeviceId,
+      requestedDeviceName,
+      previousDeviceId: emp.registeredDeviceId,
+      previousDeviceName: emp.registeredDeviceName,
+      requestedAt: new Date().toISOString(),
+      reason,
+      status: 'pending',
+    };
+
+    const updatedEmp: Employee = {
+      ...emp,
+      pendingDeviceRequest: request,
+    };
+
+    const nextEmps = employees.map((e) => (e.id === employeeId ? updatedEmp : e));
+    setEmployees(nextEmps);
+    saveEmployees(nextEmps);
+    if (currentUser?.id === employeeId) {
+      setCurrentUser(updatedEmp);
+    }
+  };
+
+  const handleApproveDeviceChange = (employeeId: string) => {
+    const emp = employees.find((e) => e.id === employeeId);
+    if (!emp || !emp.pendingDeviceRequest) return;
+
+    const req = emp.pendingDeviceRequest;
+    const historyEntry: DeviceHistoryEntry = {
+      id: `hist-${Date.now()}`,
+      action: emp.registeredDeviceId ? 'changed' : 'bound',
+      deviceId: req.requestedDeviceId,
+      deviceName: req.requestedDeviceName,
+      changedBy: currentUser?.name || 'Administrator',
+      changedAt: new Date().toISOString(),
+      reason: req.reason || 'Admin approval',
+    };
+
+    const updatedEmp: Employee = {
+      ...emp,
+      registeredDeviceId: req.requestedDeviceId,
+      registeredDeviceName: req.requestedDeviceName,
+      registeredAt: new Date().toISOString(),
+      deviceBoundApprovedBy: currentUser?.name || 'Administrator',
+      deviceBoundApprovedAt: new Date().toISOString(),
+      pendingDeviceRequest: undefined,
+      deviceChangeHistory: [historyEntry, ...(emp.deviceChangeHistory || [])],
+    };
+
+    const nextEmps = employees.map((e) => (e.id === employeeId ? updatedEmp : e));
+    setEmployees(nextEmps);
+    saveEmployees(nextEmps);
+    if (currentUser?.id === employeeId) {
+      setCurrentUser(updatedEmp);
+    }
+    alert(`Device binding approved for ${emp.name}! Their account is now bound to "${req.requestedDeviceName}".`);
+  };
+
+  const handleRejectDeviceChange = (employeeId: string) => {
+    const emp = employees.find((e) => e.id === employeeId);
+    if (!emp || !emp.pendingDeviceRequest) return;
+
+    const updatedEmp: Employee = {
+      ...emp,
+      pendingDeviceRequest: undefined,
+    };
+
+    const nextEmps = employees.map((e) => (e.id === employeeId ? updatedEmp : e));
+    setEmployees(nextEmps);
+    saveEmployees(nextEmps);
+    if (currentUser?.id === employeeId) {
+      setCurrentUser(updatedEmp);
+    }
+    alert(`Device binding request for ${emp.name} has been rejected.`);
+  };
+
+  const handleResetDeviceBound = (employeeId: string) => {
+    const emp = employees.find((e) => e.id === employeeId);
+    if (!emp) return;
+
+    if (
+      !confirm(
+        `Reset personal device bound for "${emp.name}"?\n\nTheir current phone pairing ("${emp.registeredDeviceName || 'Registered Device'}") will be unlinked. The employee will need to submit a new phone binding request for Administrator approval.`
+      )
+    ) {
+      return;
+    }
+
+    const historyEntry: DeviceHistoryEntry = {
+      id: `hist-${Date.now()}`,
+      action: 'reset',
+      deviceId: emp.registeredDeviceId,
+      deviceName: emp.registeredDeviceName,
+      changedBy: currentUser?.name || 'Administrator',
+      changedAt: new Date().toISOString(),
+      reason: 'Admin reset device bound',
+    };
+
+    const updatedEmp: Employee = {
+      ...emp,
+      registeredDeviceId: undefined,
+      registeredDeviceName: undefined,
+      registeredAt: undefined,
+      deviceBoundApprovedBy: undefined,
+      deviceBoundApprovedAt: undefined,
+      pendingDeviceRequest: undefined,
+      deviceChangeHistory: [historyEntry, ...(emp.deviceChangeHistory || [])],
+    };
+
+    const nextEmps = employees.map((e) => (e.id === employeeId ? updatedEmp : e));
+    setEmployees(nextEmps);
+    saveEmployees(nextEmps);
+    if (currentUser?.id === employeeId) {
+      setCurrentUser(updatedEmp);
+    }
   };
 
   const handleAddShift = (shiftData: Omit<ShiftSchedule, 'id'>) => {
@@ -571,6 +723,7 @@ export default function App() {
             onSwitchToKiosk={() => handleToggleMode('kiosk')}
             ceoComments={ceoComments}
             onMarkCeoCommentRead={handleMarkCeoCommentRead}
+            onOpenChangePassword={() => setIsChangePasswordOpen(true)}
           />
 
           {/* Body Split: Sidebar + Active Viewport */}
@@ -599,6 +752,8 @@ export default function App() {
                   currentClientIp={currentClientIp}
                   ceoComments={ceoComments}
                   onMarkCeoCommentRead={handleMarkCeoCommentRead}
+                  onOpenRequestDevice={() => setIsRequestDeviceOpen(true)}
+                  onOpenChangePassword={() => setIsChangePasswordOpen(true)}
                 />
               )}
 
@@ -611,6 +766,8 @@ export default function App() {
                   onOpenPrintModal={handleOpenPrintModal}
                   ceoComments={ceoComments}
                   onMarkCeoCommentRead={handleMarkCeoCommentRead}
+                  onOpenRequestDevice={() => setIsRequestDeviceOpen(true)}
+                  onOpenChangePassword={() => setIsChangePasswordOpen(true)}
                 />
               )}
 
@@ -639,14 +796,18 @@ export default function App() {
                 />
               )}
 
-              {(currentUser.role === 'admin' || currentUser.role === 'ceo') && activeTab === 'employees' && (
+              {currentUser.role === 'admin' && activeTab === 'employees' && (
                 <EmployeesDirectoryTab
                   employees={employees}
                   shifts={shifts}
+                  records={records}
                   onAddEmployee={handleAddEmployee}
                   onUpdateEmployee={handleUpdateEmployee}
                   onDeleteEmployee={handleDeleteEmployee}
                   currentUserId={currentUser.id}
+                  onApproveDeviceChange={handleApproveDeviceChange}
+                  onRejectDeviceChange={handleRejectDeviceChange}
+                  onResetDeviceBound={handleResetDeviceBound}
                 />
               )}
 
@@ -702,6 +863,26 @@ export default function App() {
           allEmployees={employees}
           records={printModalState.filteredRecords}
           settings={settings}
+        />
+      )}
+
+      {/* Change Password / PIN Modal */}
+      {currentUser && (
+        <ChangePasswordModal
+          isOpen={isChangePasswordOpen}
+          onClose={() => setIsChangePasswordOpen(false)}
+          currentUser={currentUser}
+          onUpdatePin={handleUpdatePin}
+        />
+      )}
+
+      {/* Request Phone / Device Change Modal */}
+      {currentUser && (
+        <RequestDeviceChangeModal
+          isOpen={isRequestDeviceOpen}
+          onClose={() => setIsRequestDeviceOpen(false)}
+          currentUser={currentUser}
+          onRequestDeviceChange={handleRequestDeviceChange}
         />
       )}
     </div>
