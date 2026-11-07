@@ -27,6 +27,7 @@ import {
   syncDatabaseFromServer,
 } from './lib/storage';
 import {
+  autoCloseForgottenPunches,
   calculateWorkedMinutes,
   getCurrentTimeString,
   getDayName,
@@ -85,9 +86,16 @@ export default function App() {
     const refreshFromLocal = () => {
       const loadedEmps = loadEmployees();
       const loadedShifts = loadShifts();
-      const loadedRecords = loadAttendanceRecords();
+      let loadedRecords = loadAttendanceRecords();
       const loadedLeaves = loadLeaves();
       const loadedSettings = loadSettings();
+
+      // Automatically punch out any forgotten punches at 11:59 PM
+      const { updatedRecords, hasChanges } = autoCloseForgottenPunches(loadedRecords, loadedShifts);
+      if (hasChanges) {
+        loadedRecords = updatedRecords;
+        saveAttendanceRecords(updatedRecords);
+      }
 
       setEmployees(loadedEmps);
       setShifts(loadedShifts);
@@ -121,6 +129,19 @@ export default function App() {
       });
     }, 4000);
 
+    // Periodic check to auto punch out at 11:59 PM without requiring manual reload
+    const autoPunchInterval = setInterval(() => {
+      setRecords((prev) => {
+        const currentShifts = loadShifts();
+        const { updatedRecords, hasChanges } = autoCloseForgottenPunches(prev, currentShifts);
+        if (hasChanges) {
+          saveAttendanceRecords(updatedRecords);
+          return updatedRecords;
+        }
+        return prev;
+      });
+    }, 10000);
+
     const ipInterval = setInterval(() => {
       void detectClientNetwork().then((net) => {
         setCurrentClientIp(net.ip);
@@ -130,6 +151,7 @@ export default function App() {
 
     return () => {
       clearInterval(syncInterval);
+      clearInterval(autoPunchInterval);
       clearInterval(ipInterval);
     };
   }, []);
@@ -569,17 +591,19 @@ export default function App() {
                 />
               )}
 
-              {/* Admin Views - Protected by Role Guard */}
-              {currentUser.role === 'admin' && activeTab === 'team-attendance' && (
-                <TeamAttendanceTab
-                  employees={employees}
-                  records={records}
-                  shifts={shifts}
-                  settings={settings}
-                  onUpdateRecord={handleUpdateRecord}
-                  adminUser={currentUser}
-                />
-              )}
+              {/* Team Attendance & Verification - Protected for Admin and Accounts Officer */}
+              {(currentUser.role === 'admin' || currentUser.role === 'accounts') &&
+                activeTab === 'team-attendance' && (
+                  <TeamAttendanceTab
+                    employees={employees}
+                    records={records}
+                    shifts={shifts}
+                    settings={settings}
+                    onUpdateRecord={handleUpdateRecord}
+                    adminUser={currentUser}
+                    currentUser={currentUser}
+                  />
+                )}
 
               {currentUser.role === 'admin' && activeTab === 'employees' && (
                 <EmployeesDirectoryTab
@@ -600,15 +624,17 @@ export default function App() {
                 />
               )}
 
-              {currentUser.role === 'admin' && activeTab === 'reports' && (
-                <ReportsTab
-                  employees={employees}
-                  records={records}
-                  shifts={shifts}
-                  settings={settings}
-                  onOpenPrintModal={handleOpenPrintModal}
-                />
-              )}
+              {/* Reports & Payroll - Allowed for Admin and Accounts Officer */}
+              {(currentUser.role === 'admin' || currentUser.role === 'accounts') &&
+                activeTab === 'reports' && (
+                  <ReportsTab
+                    employees={employees}
+                    records={records}
+                    shifts={shifts}
+                    settings={settings}
+                    onOpenPrintModal={handleOpenPrintModal}
+                  />
+                )}
 
               {currentUser.role === 'admin' && activeTab === 'settings' && (
                 <OfficeSettingsTab
