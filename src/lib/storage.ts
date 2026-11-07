@@ -1,5 +1,6 @@
 import {
   AttendanceRecord,
+  CeoComment,
   Employee,
   LeaveRequest,
   OfficeSettings,
@@ -19,6 +20,7 @@ const STORAGE_KEY_LEAVES = 'office_attend_leaves_v1';
 const STORAGE_KEY_SETTINGS = 'office_attend_settings_v1';
 const STORAGE_KEY_SESSION = 'office_attend_session_v1';
 const STORAGE_KEY_MODE = 'office_attend_mode_v1';
+const STORAGE_KEY_CEO_COMMENTS = 'office_attend_ceo_comments_v1';
 
 export const INITIAL_SHIFTS: ShiftSchedule[] = [
   {
@@ -145,6 +147,7 @@ export async function pushDatabaseToServer(): Promise<void> {
       employees: JSON.parse(localStorage.getItem(STORAGE_KEY_EMPLOYEES) || 'null') || INITIAL_EMPLOYEES,
       attendance: JSON.parse(localStorage.getItem(STORAGE_KEY_ATTENDANCE) || 'null') || [],
       leaves: JSON.parse(localStorage.getItem(STORAGE_KEY_LEAVES) || 'null') || [],
+      ceoComments: JSON.parse(localStorage.getItem(STORAGE_KEY_CEO_COMMENTS) || 'null') || [],
     };
     const res = await fetch(`/api/db?t=${Date.now()}`, {
       method: 'POST',
@@ -184,6 +187,7 @@ export async function syncDatabaseFromServer(forceAccept = false): Promise<boole
       if (data.employees) localStorage.setItem(STORAGE_KEY_EMPLOYEES, JSON.stringify(data.employees));
       if (data.attendance) localStorage.setItem(STORAGE_KEY_ATTENDANCE, JSON.stringify(data.attendance));
       if (data.leaves) localStorage.setItem(STORAGE_KEY_LEAVES, JSON.stringify(data.leaves));
+      if (data.ceoComments) localStorage.setItem(STORAGE_KEY_CEO_COMMENTS, JSON.stringify(data.ceoComments));
       isSyncingFromServer = false;
       return true;
     }
@@ -282,6 +286,24 @@ export function saveLeaves(leaves: LeaveRequest[]): void {
     void pushDatabaseToServer();
   } catch (err) {
     console.error('Failed to save leaves:', err);
+  }
+}
+
+export function loadCeoComments(): CeoComment[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CEO_COMMENTS);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCeoComments(comments: CeoComment[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_CEO_COMMENTS, JSON.stringify(comments));
+    void pushDatabaseToServer();
+  } catch (err) {
+    console.error('Failed to save CEO comments:', err);
   }
 }
 
