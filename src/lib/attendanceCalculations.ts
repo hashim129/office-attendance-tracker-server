@@ -173,3 +173,74 @@ export function playPunchSound(type: 'in' | 'out' | 'break') {
     // Audio autoplay restrictions or headless env
   }
 }
+
+/**
+ * Auto punch out any employee record that forgot to clock out by 11:59 PM (23:59:00).
+ * Checks:
+ * 1. Any record where record.timeIn exists but record.timeOut does NOT exist.
+ * 2. If record.date < todayDateString() OR (record.date === todayDateString() && currentTime >= '23:59:00')
+ * 3. Automatically sets timeOut to "23:59:00", closes any open break, recalculates worked minutes,
+ *    marks isAutoPunchedOut = true, and appends "Auto system Punched out" to notes.
+ */
+export function autoCloseForgottenPunches(
+  records: AttendanceRecord[],
+  shifts: ShiftSchedule[]
+): { updatedRecords: AttendanceRecord[]; hasChanges: boolean } {
+  const today = getTodayDateString();
+  const nowTime = getCurrentTimeString();
+  let hasChanges = false;
+
+  const defaultShift = shifts[0] || { expectedHours: 8 };
+
+  const updatedRecords = records.map((record) => {
+    // Only target records that have clocked in but haven't clocked out
+    if (record.timeIn && !record.timeOut) {
+      const isPastDay = record.date < today;
+      const isPastMidnightToday = record.date === today && nowTime >= '23:59:00';
+
+      if (isPastDay || isPastMidnightToday) {
+        hasChanges = true;
+        const autoOutTime = '23:59:00';
+
+        // Close any active break that was left open
+        const updatedBreaks = (record.breaks || []).map((b) => {
+          if (!b.end) {
+            return { ...b, end: autoOutTime };
+          }
+          return b;
+        });
+
+        // Find shift for employee
+        const shift = defaultShift;
+        const { totalWorkedMinutes, regularMinutes, overtimeMinutes } = calculateWorkedMinutes(
+          record.timeIn,
+          autoOutTime,
+          updatedBreaks,
+          shift.expectedHours || 8
+        );
+
+        const existingNotes = record.notes ? record.notes.trim() : '';
+        const autoRemark = 'Auto system Punched out';
+        const finalNotes = existingNotes
+          ? existingNotes.includes(autoRemark)
+            ? existingNotes
+            : `${existingNotes} · ${autoRemark}`
+          : autoRemark;
+
+        return {
+          ...record,
+          timeOut: autoOutTime,
+          breaks: updatedBreaks,
+          totalWorkedMinutes,
+          regularMinutes,
+          overtimeMinutes,
+          notes: finalNotes,
+          isAutoPunchedOut: true,
+        };
+      }
+    }
+    return record;
+  });
+
+  return { updatedRecords, hasChanges };
+}
