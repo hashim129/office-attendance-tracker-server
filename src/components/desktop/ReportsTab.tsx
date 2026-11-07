@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Send,
   Edit3,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   AttendanceRecord,
@@ -610,9 +611,20 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
 
                       <td className="py-3 px-4">
                         {r.timeIn ? (
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 shadow-2xs font-mono font-bold text-xs">
-                            <Sunrise className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                            <span>{formatTime12h(r.timeIn)}</span>
+                          <div className="flex flex-col">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 shadow-2xs font-mono font-bold text-xs">
+                              <Sunrise className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                              <span>{formatTime12h(r.timeIn)}</span>
+                            </div>
+                            {(r.isDeviceMismatch || (r.deviceId && emp?.registeredDeviceId && r.deviceId !== emp.registeredDeviceId)) && (
+                              <div
+                                className="mt-1 inline-flex items-center gap-1 text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700 max-w-[140px] truncate"
+                                title={`Warning: Punch marked from unapproved device (${r.deviceName || r.deviceId || 'Unknown'}). Registered device is ${emp?.registeredDeviceName || emp?.registeredDeviceId}.`}
+                              >
+                                <AlertTriangle className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                <span className="truncate">⚠️ Mismatched Device</span>
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <span className="text-slate-400 font-sans text-xs">—</span>
@@ -704,7 +716,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
                       {(currentUser?.role === 'ceo' || currentUser?.role === 'admin') && (
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {onUpdateRecord && (
+                            {currentUser?.role === 'admin' && onUpdateRecord && (
                               <button
                                 onClick={() => handleOpenAdjustment(r)}
                                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors cursor-pointer"
