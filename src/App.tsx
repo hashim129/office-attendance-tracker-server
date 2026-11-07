@@ -34,6 +34,7 @@ import {
   isLateArrival,
 } from './lib/attendanceCalculations';
 import { detectClientNetwork } from './lib/ipSecurity';
+import { getDeviceDetails } from './lib/deviceSecurity';
 import { WindowsTitleBar } from './components/common/WindowsTitleBar';
 import { LoginView } from './components/desktop/LoginView';
 import { DesktopHeader } from './components/desktop/DesktopHeader';
@@ -171,12 +172,38 @@ export default function App() {
     const dayName = getDayName(todayStr);
     const nowTime = getCurrentTimeString();
     const emp = employees.find((e) => e.id === employeeId);
+    if (!emp) return;
     const shift = shifts.find((s) => s.id === emp?.shiftId) || shifts[0];
     const late = isLateArrival(nowTime, shift);
 
     const existingIdx = records.findIndex(
       (r) => r.employeeId === employeeId && r.date === todayStr
     );
+
+    // DAILY LIMIT ENFORCEMENT: Each employee is restricted to 1 attendance punch daily
+    if (existingIdx >= 0 && records[existingIdx].timeIn) {
+      alert(
+        `Daily Punch Limit: ${emp.name} already clocked in today at ${records[existingIdx].timeIn}. Only ONE clock-in is permitted per day. If a modification is required, contact the Administrator.`
+      );
+      return;
+    }
+
+    // Auto-bind device on first punch if not bound yet
+    const { deviceId, deviceLabel } = getDeviceDetails();
+    if (!emp.registeredDeviceId && settings.enforceDeviceBinding !== false) {
+      const updatedEmp: Employee = {
+        ...emp,
+        registeredDeviceId: deviceId,
+        registeredDeviceName: deviceLabel,
+        registeredAt: new Date().toISOString(),
+      };
+      const updatedEmployees = employees.map((e) => (e.id === emp.id ? updatedEmp : e));
+      setEmployees(updatedEmployees);
+      saveEmployees(updatedEmployees);
+      if (currentUser?.id === emp.id) {
+        setCurrentUser(updatedEmp);
+      }
+    }
 
     let nextRecords = [...records];
 
@@ -187,6 +214,8 @@ export default function App() {
         status: late ? 'late' : 'present',
         notes: notes || nextRecords[existingIdx].notes,
         clientIp: currentClientIp,
+        deviceId,
+        deviceName: deviceLabel,
       };
     } else {
       const newRec: AttendanceRecord = {
@@ -202,12 +231,31 @@ export default function App() {
         status: late ? 'late' : 'present',
         notes,
         clientIp: currentClientIp,
+        deviceId,
+        deviceName: deviceLabel,
       };
       nextRecords = [newRec, ...nextRecords];
     }
 
     setRecords(nextRecords);
     saveAttendanceRecords(nextRecords);
+  };
+
+  const handleUpdatePunchNote = (employeeId: string, notes: string) => {
+    const todayStr = getTodayDateString();
+    const existingIdx = records.findIndex(
+      (r) => r.employeeId === employeeId && r.date === todayStr
+    );
+
+    if (existingIdx >= 0) {
+      const updatedRecords = [...records];
+      updatedRecords[existingIdx] = {
+        ...updatedRecords[existingIdx],
+        notes,
+      };
+      setRecords(updatedRecords);
+      saveAttendanceRecords(updatedRecords);
+    }
   };
 
   const handleTimeOut = (employeeId: string, notes?: string) => {
@@ -488,12 +536,14 @@ export default function App() {
               {activeTab === 'clock' && (
                 <PunchClockTab
                   currentUser={currentUser}
+                  allEmployees={employees}
                   shifts={shifts}
                   records={records}
                   onTimeIn={handleTimeIn}
                   onTimeOut={handleTimeOut}
                   onStartBreak={handleStartBreak}
                   onEndBreak={handleEndBreak}
+                  onUpdatePunchNote={handleUpdatePunchNote}
                   settings={settings}
                   currentClientIp={currentClientIp}
                 />

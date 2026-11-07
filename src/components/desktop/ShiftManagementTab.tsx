@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CalendarRange, Plus, Edit2, Clock, Check, AlertCircle } from 'lucide-react';
+import { CalendarRange, Plus, Edit2, Clock, Check, AlertCircle, Power, CheckCircle2 } from 'lucide-react';
 import { ShiftSchedule } from '../../types';
 import { formatTime12h } from '../../lib/attendanceCalculations';
 import { Modal } from '../common/Modal';
@@ -36,6 +36,7 @@ export const ShiftManagementTab: React.FC<ShiftManagementTabProps> = ({
     expectedHours: 8,
     workDays: [1, 2, 3, 4, 5],
     color: 'blue',
+    isActive: true,
   });
 
   const handleOpenAdd = () => {
@@ -47,6 +48,7 @@ export const ShiftManagementTab: React.FC<ShiftManagementTabProps> = ({
       expectedHours: 8,
       workDays: [1, 2, 3, 4, 5],
       color: 'blue',
+      isActive: true,
     });
     setIsAddOpen(true);
   };
@@ -61,6 +63,15 @@ export const ShiftManagementTab: React.FC<ShiftManagementTabProps> = ({
       expectedHours: shift.expectedHours,
       workDays: shift.workDays,
       color: shift.color || 'blue',
+      isActive: shift.isActive !== false,
+    });
+  };
+
+  const handleToggleShiftStatus = (shift: ShiftSchedule) => {
+    const nextStatus = shift.isActive === false ? true : false;
+    onUpdateShift({
+      ...shift,
+      isActive: nextStatus,
     });
   };
 
@@ -104,7 +115,7 @@ export const ShiftManagementTab: React.FC<ShiftManagementTabProps> = ({
             <span>Shift Schedules & Attendance Rules</span>
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Define daily operating hours, grace periods, and late-arrival thresholds
+            Define daily operating hours, grace periods, late-arrival thresholds, and active/disabled shifts
           </p>
         </div>
 
@@ -119,28 +130,62 @@ export const ShiftManagementTab: React.FC<ShiftManagementTabProps> = ({
 
       {/* Shifts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {shifts.map((shift) => (
-          <div
-            key={shift.id}
-            className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    {shift.name}
-                  </h3>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 font-mono font-medium mt-1">
-                    {formatTime12h(shift.startTime)} – {formatTime12h(shift.endTime)}
-                  </p>
+        {shifts.map((shift) => {
+          const isShiftActive = shift.isActive !== false;
+          return (
+            <div
+              key={shift.id}
+              className={`rounded-xl p-5 border shadow-xs flex flex-col justify-between transition-all ${
+                isShiftActive
+                  ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+                  : 'bg-slate-50/70 dark:bg-slate-900/50 border-dashed border-slate-300 dark:border-slate-700 opacity-85'
+              }`}
+            >
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {shift.name}
+                      </h3>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          isShiftActive
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                            : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                        }`}
+                      >
+                        {isShiftActive ? 'Active' : 'Disabled'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 font-mono font-medium mt-1">
+                      {formatTime12h(shift.startTime)} – {formatTime12h(shift.endTime)}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleShiftStatus(shift)}
+                      className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
+                        isShiftActive
+                          ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-900/40'
+                          : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/40'
+                      }`}
+                      title={isShiftActive ? 'Disable this shift' : 'Activate this shift'}
+                    >
+                      <Power className="w-3 h-3" />
+                      <span>{isShiftActive ? 'Disable' : 'Activate'}</span>
+                    </button>
+                    <button
+                      onClick={() => handleOpenEdit(shift)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      title="Edit shift settings"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={() => handleOpenEdit(shift)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
 
               <div className="mt-4 space-y-2 text-xs text-slate-600 dark:text-slate-300">
                 <div className="flex items-center justify-between">
@@ -185,8 +230,9 @@ export const ShiftManagementTab: React.FC<ShiftManagementTabProps> = ({
               <span className="text-emerald-600 dark:text-emerald-400 font-medium">Enabled</span>
             </div>
           </div>
-        ))}
-      </div>
+        );
+      })}
+    </div>
 
       {/* Add / Edit Modal */}
       {(isAddOpen || editingShift) && (
@@ -295,6 +341,32 @@ export const ShiftManagementTab: React.FC<ShiftManagementTabProps> = ({
                   );
                 })}
               </div>
+            </div>
+
+            {/* Shift Status Active / Disabled */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+              <div>
+                <label className="text-xs font-semibold text-slate-900 dark:text-slate-100 block">
+                  Shift Active Status
+                </label>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {formData.isActive
+                    ? 'Shift is enabled and can be assigned to employee rosters.'
+                    : 'Shift is disabled and cannot be selected for new assignments.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  formData.isActive
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <Power className="w-3.5 h-3.5" />
+                <span>{formData.isActive ? 'Active (Enabled)' : 'Disabled'}</span>
+              </button>
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">

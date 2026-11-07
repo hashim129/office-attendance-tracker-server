@@ -30,6 +30,7 @@ export const INITIAL_SHIFTS: ShiftSchedule[] = [
     graceMinutes: 15,
     expectedHours: 8,
     color: 'blue',
+    isActive: true,
   },
   {
     id: 'shift-early',
@@ -40,6 +41,7 @@ export const INITIAL_SHIFTS: ShiftSchedule[] = [
     graceMinutes: 10,
     expectedHours: 8,
     color: 'amber',
+    isActive: true,
   },
   {
     id: 'shift-flex',
@@ -50,6 +52,7 @@ export const INITIAL_SHIFTS: ShiftSchedule[] = [
     graceMinutes: 20,
     expectedHours: 8,
     color: 'emerald',
+    isActive: true,
   },
 ];
 
@@ -92,6 +95,9 @@ export const INITIAL_SETTINGS: OfficeSettings = {
     },
   ],
   allowAdminBypassIpLock: true,
+  enforceDeviceBinding: true,
+  allowAdminBypassDeviceBinding: true,
+  allowKioskPunchWithoutDevice: true,
 };
 
 export const INITIAL_EMPLOYEES: Employee[] = [
@@ -287,25 +293,24 @@ export function loadSettings(): OfficeSettings {
       return INITIAL_SETTINGS;
     }
     const parsed: OfficeSettings = JSON.parse(raw);
-    if (parsed.enforceOfficeIpLock === undefined) {
-      const upgraded: OfficeSettings = {
-        ...INITIAL_SETTINGS,
-        ...parsed,
-        enforceOfficeIpLock: INITIAL_SETTINGS.enforceOfficeIpLock,
-        allowedOfficeIps:
-          parsed.allowedOfficeIps && parsed.allowedOfficeIps.length > 0
-            ? parsed.allowedOfficeIps
-            : INITIAL_SETTINGS.allowedOfficeIps,
-        allowedOfficeIsps:
-          parsed.allowedOfficeIsps && parsed.allowedOfficeIsps.length > 0
-            ? parsed.allowedOfficeIsps
-            : INITIAL_SETTINGS.allowedOfficeIsps,
-        allowAdminBypassIpLock: parsed.allowAdminBypassIpLock ?? true,
-      };
-      localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(upgraded));
-      return upgraded;
-    }
-    return parsed;
+    const upgraded: OfficeSettings = {
+      ...INITIAL_SETTINGS,
+      ...parsed,
+      enforceOfficeIpLock: parsed.enforceOfficeIpLock ?? INITIAL_SETTINGS.enforceOfficeIpLock,
+      allowedOfficeIps:
+        parsed.allowedOfficeIps && parsed.allowedOfficeIps.length > 0
+          ? parsed.allowedOfficeIps
+          : INITIAL_SETTINGS.allowedOfficeIps,
+      allowedOfficeIsps:
+        parsed.allowedOfficeIsps && parsed.allowedOfficeIsps.length > 0
+          ? parsed.allowedOfficeIsps
+          : INITIAL_SETTINGS.allowedOfficeIsps,
+      allowAdminBypassIpLock: parsed.allowAdminBypassIpLock ?? true,
+      enforceDeviceBinding: parsed.enforceDeviceBinding ?? true,
+      allowAdminBypassDeviceBinding: parsed.allowAdminBypassDeviceBinding ?? true,
+      allowKioskPunchWithoutDevice: parsed.allowKioskPunchWithoutDevice ?? true,
+    };
+    return upgraded;
   } catch {
     return INITIAL_SETTINGS;
   }

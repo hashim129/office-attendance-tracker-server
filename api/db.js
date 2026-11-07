@@ -231,6 +231,9 @@ export default async function handler(req, res) {
               ...existing,
               ...a,
               timeOut: a.timeOut || existing.timeOut,
+              notes: a.notes !== undefined ? a.notes : existing.notes,
+              deviceId: a.deviceId || existing.deviceId,
+              deviceName: a.deviceName || existing.deviceName,
               breaks:
                 Array.isArray(a.breaks) && a.breaks.length >= (existing.breaks?.length || 0)
                   ? a.breaks

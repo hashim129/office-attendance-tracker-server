@@ -170,6 +170,17 @@ export const KioskMode: React.FC<KioskModeProps> = ({
 
   const handleKioskTimeIn = () => {
     if (!matchedEmployee) return;
+    if (todayRecord?.timeIn) {
+      setToastMessage({
+        text: `Daily Limit: ${matchedEmployee.name} already punched Time In today at ${formatTime12h(todayRecord.timeIn)}. Only 1 clock-in permitted per day.`,
+        type: 'info',
+      });
+      setTimeout(() => {
+        setMatchedEmployee(null);
+        setPinInput('');
+      }, 4000);
+      return;
+    }
     const check = verifyOfficeIpAccess(currentClientIp, settings, matchedEmployee);
     if (!check.allowed) {
       setToastMessage({

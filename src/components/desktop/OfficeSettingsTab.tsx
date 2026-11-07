@@ -14,6 +14,7 @@ import {
   Trash2,
   Globe,
   ShieldCheck,
+  Smartphone,
 } from 'lucide-react';
 import { OfficeSettings } from '../../types';
 import {
@@ -516,6 +517,83 @@ export const OfficeSettingsTab: React.FC<OfficeSettingsTabProps> = ({
                 })}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Anti-Proxy Single-Device Binding Security Card */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border-2 border-blue-500/30 dark:border-blue-500/20 shadow-xs space-y-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+            <Smartphone className="w-4 h-4 text-blue-600" />
+            <span>Anti-Proxy Punching & Mobile Device Binding (1 Device = 1 Employee)</span>
+          </div>
+
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Prevents coworkers from sharing PINs or clocking in for absent colleagues while connected to the office network. When enabled, each employee's account is permanently paired to their personal mobile phone on their first punch.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.enforceDeviceBinding !== false}
+                onChange={(e) => {
+                  const updated = { ...formData, enforceDeviceBinding: e.target.checked };
+                  setFormData(updated);
+                  onUpdateSettings(updated);
+                }}
+                className="mt-1 w-4 h-4 rounded text-blue-600"
+              />
+              <div className="text-xs">
+                <span className="font-semibold text-slate-900 dark:text-slate-100 block">
+                  Enforce Single-Device Binding
+                </span>
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">
+                  Employees can only punch from their own registered phone
+                </span>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.allowAdminBypassDeviceBinding !== false}
+                onChange={(e) => {
+                  const updated = { ...formData, allowAdminBypassDeviceBinding: e.target.checked };
+                  setFormData(updated);
+                  onUpdateSettings(updated);
+                }}
+                className="mt-1 w-4 h-4 rounded text-blue-600"
+              />
+              <div className="text-xs">
+                <span className="font-semibold text-slate-900 dark:text-slate-100 block">
+                  Allow Admin Bypass
+                </span>
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">
+                  Administrators can log in and manage from any office PC
+                </span>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.allowKioskPunchWithoutDevice !== false}
+                onChange={(e) => {
+                  const updated = { ...formData, allowKioskPunchWithoutDevice: e.target.checked };
+                  setFormData(updated);
+                  onUpdateSettings(updated);
+                }}
+                className="mt-1 w-4 h-4 rounded text-blue-600"
+              />
+              <div className="text-xs">
+                <span className="font-semibold text-slate-900 dark:text-slate-100 block">
+                  Exempt Lobby Kiosk Terminal
+                </span>
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">
+                  Allows wall-mounted reception tablet to accept PINs from all staff
+                </span>
+              </div>
+            </label>
           </div>
         </div>
 

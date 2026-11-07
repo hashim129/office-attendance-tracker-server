@@ -29,6 +29,8 @@ export interface AttendanceRecord {
   adjustmentNote?: string;
   adjustedBy?: string;
   clientIp?: string;
+  deviceId?: string;
+  deviceName?: string;
 }
 
 export interface ShiftSchedule {
@@ -40,6 +42,7 @@ export interface ShiftSchedule {
   graceMinutes: number; // e.g. 15 mins
   expectedHours: number; // e.g. 8
   color: string;
+  isActive?: boolean; // When false, shift cannot be assigned or selected
 }
 
 export interface Employee {
@@ -57,6 +60,9 @@ export interface Employee {
   isActive: boolean;
   joinedDate: string;
   avatarSeed?: string;
+  registeredDeviceId?: string; // Persistent device UUID bound to this employee
+  registeredDeviceName?: string; // e.g. "Ahmed's Samsung Galaxy A54 (Android)"
+  registeredAt?: string;
 }
 
 export type LeaveType = 'annual' | 'sick' | 'casual' | 'unpaid' | 'remote_work';
@@ -94,6 +100,9 @@ export interface OfficeSettings {
   allowedOfficeIps?: { ip: string; label: string; addedAt: string }[];
   allowedOfficeIsps?: { ispName: string; label: string; addedAt: string }[];
   allowAdminBypassIpLock?: boolean;
+  enforceDeviceBinding?: boolean; // Anti-proxy punching: 1 device per employee
+  allowAdminBypassDeviceBinding?: boolean;
+  allowKioskPunchWithoutDevice?: boolean;
 }
 
 export type AppMode = 'desktop' | 'kiosk';

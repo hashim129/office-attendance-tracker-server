@@ -10,6 +10,8 @@ import {
   Phone,
   Mail,
   Building,
+  Smartphone,
+  RotateCcw,
 } from 'lucide-react';
 import { Employee, Role, ShiftSchedule } from '../../types';
 import { Modal } from '../common/Modal';
@@ -37,6 +39,8 @@ export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
   const [editingEmp, setEditingEmp] = useState<Employee | null>(null);
   const [deletingEmp, setDeletingEmp] = useState<Employee | null>(null);
 
+  const firstActiveShift = shifts.find((s) => s.isActive !== false) || shifts[0];
+
   // Form State
   const [formData, setFormData] = useState({
     name: '',
@@ -46,7 +50,7 @@ export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
     pin: '',
     department: 'Engineering',
     designation: '',
-    shiftId: shifts[0]?.id || '',
+    shiftId: firstActiveShift?.id || '',
     phone: '',
     hourlyRate: 35,
     isActive: true,
@@ -68,6 +72,21 @@ export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
     return true;
   });
 
+  const handleResetDevice = (emp: Employee) => {
+    if (
+      confirm(
+        `Reset device pairing for "${emp.name}"?\n\nTheir current personal device binding will be removed. The employee will be able to bind a new device on their next punch.`
+      )
+    ) {
+      onUpdateEmployee({
+        ...emp,
+        registeredDeviceId: undefined,
+        registeredDeviceName: undefined,
+        registeredAt: undefined,
+      });
+    }
+  };
+
   const handleOpenAddModal = () => {
     // Generate next employee code
     const nextCodeNum = employees.length + 101;
@@ -79,7 +98,7 @@ export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
       pin: Math.floor(1000 + Math.random() * 9000).toString(),
       department: 'Engineering',
       designation: '',
-      shiftId: shifts[0]?.id || '',
+      shiftId: firstActiveShift?.id || '',
       phone: '+1 (555) 000-0000',
       hourlyRate: 38,
       isActive: true,
@@ -258,11 +277,37 @@ export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
                       {emp.pin}
                     </span>
                   </div>
+
+                  <div className="flex items-center justify-between text-[11px] pt-1">
+                    <span className="text-slate-500">Bound Device:</span>
+                    {emp.registeredDeviceId ? (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-900/50 max-w-[140px] truncate"
+                        title={`${emp.registeredDeviceName || emp.registeredDeviceId} (Paired on ${emp.registeredAt ? new Date(emp.registeredAt).toLocaleDateString() : 'N/A'})`}
+                      >
+                        <Smartphone className="w-3 h-3 shrink-0 text-blue-600 dark:text-blue-400" />
+                        <span className="truncate">{emp.registeredDeviceName?.split('·')[0] || 'Personal Device'}</span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic">No Device (Auto-Pairs)</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {/* Action Buttons */}
               <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
+                {emp.registeredDeviceId && (
+                  <button
+                    onClick={() => handleResetDevice(emp)}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40 transition-colors cursor-pointer"
+                    title="Reset device pairing so employee can bind a new phone"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Device</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => handleOpenEditModal(emp)}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-blue-400 dark:hover:bg-slate-800 transition-colors cursor-pointer"
@@ -418,11 +463,18 @@ export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
                   onChange={(e) => setFormData({ ...formData, shiftId: e.target.value })}
                   className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100"
                 >
-                  {shifts.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.startTime} – {s.endTime})
-                    </option>
-                  ))}
+                  {shifts.map((s) => {
+                    const isDisabled = s.isActive === false;
+                    return (
+                      <option
+                        key={s.id}
+                        value={s.id}
+                        disabled={isDisabled && s.id !== formData.shiftId}
+                      >
+                        {s.name} ({s.startTime} – {s.endTime}){isDisabled ? ' [Disabled Shift]' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>
