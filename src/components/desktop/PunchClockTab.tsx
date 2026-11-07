@@ -15,9 +15,11 @@ import {
   Save,
   Check,
   MessageSquare,
+  Crown,
 } from 'lucide-react';
 import {
   AttendanceRecord,
+  CeoComment,
   Employee,
   OfficeSettings,
   ShiftSchedule,
@@ -47,6 +49,8 @@ interface PunchClockTabProps {
   onUpdatePunchNote?: (employeeId: string, notes: string) => void;
   settings: OfficeSettings;
   currentClientIp?: string;
+  ceoComments?: CeoComment[];
+  onMarkCeoCommentRead?: (commentId: string) => void;
 }
 
 export const PunchClockTab: React.FC<PunchClockTabProps> = ({
@@ -61,6 +65,8 @@ export const PunchClockTab: React.FC<PunchClockTabProps> = ({
   onUpdatePunchNote,
   settings,
   currentClientIp = 'Detecting...',
+  ceoComments = [],
+  onMarkCeoCommentRead,
 }) => {
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [actionNotes, setActionNotes] = useState<string>('');
@@ -194,8 +200,59 @@ export const PunchClockTab: React.FC<PunchClockTabProps> = ({
     year: 'numeric',
   });
 
+  const myDirectives = (ceoComments || []).filter(
+    (c) => c.employeeId === currentUser.id && !c.isRead
+  );
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Unread Executive Directives Banner */}
+      {myDirectives.length > 0 && (
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border-2 border-amber-300 dark:border-amber-700 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 font-bold text-xs">
+              <Crown className="w-4 h-4 text-amber-600" />
+              <span>Executive Directives & Mentions ({myDirectives.length})</span>
+            </div>
+            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium uppercase tracking-wider">
+              Immediate Action
+            </span>
+          </div>
+          <div className="space-y-2">
+            {myDirectives.map((comment) => (
+              <div
+                key={comment.id}
+                className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 flex items-start justify-between gap-3 shadow-2xs"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                      {comment.fromName} ({comment.fromRole.toUpperCase()})
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                    "{comment.message}"
+                  </p>
+                </div>
+                {onMarkCeoCommentRead && (
+                  <button
+                    onClick={() => onMarkCeoCommentRead(comment.id)}
+                    className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-xs font-bold transition-colors cursor-pointer"
+                    title="Acknowledge directive"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Acknowledge</span>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Top Banner: Welcome & Live Windows Clock */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-xs border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-6">
         <div>
