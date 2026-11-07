@@ -336,6 +336,21 @@ export default async function handler(req, res) {
       }
       const finalLeaves = Array.from(leaveMap.values());
 
+      // Merge CEO comments / notifications by ID
+      const commentMap = new Map();
+      if (Array.isArray(current.ceoComments)) {
+        for (const c of current.ceoComments) {
+          commentMap.set(c.id, c);
+        }
+      }
+      if (Array.isArray(incoming.ceoComments)) {
+        for (const c of incoming.ceoComments) {
+          const existing = commentMap.get(c.id);
+          commentMap.set(c.id, existing ? { ...existing, ...c } : c);
+        }
+      }
+      const finalCeoComments = Array.from(commentMap.values());
+
       // Settings and shifts
       const finalSettings = incoming.settings || current.settings;
       const finalShifts = Array.isArray(incoming.shifts) && incoming.shifts.length > 0 ? incoming.shifts : current.shifts;
@@ -348,6 +363,7 @@ export default async function handler(req, res) {
         employees: finalEmployees,
         attendance: finalAttendance,
         leaves: finalLeaves,
+        ceoComments: finalCeoComments,
       };
 
       const ok = await writeToGist(token, mergedDb);
