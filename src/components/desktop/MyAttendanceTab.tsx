@@ -19,6 +19,9 @@ import {
   Crown,
   MessageSquare,
   Check,
+  Smartphone,
+  KeyRound,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   AttendanceRecord,
@@ -45,6 +48,8 @@ interface MyAttendanceTabProps {
   onOpenPrintModal: (employee: Employee, filteredRecords: AttendanceRecord[]) => void;
   ceoComments?: CeoComment[];
   onMarkCeoCommentRead?: (commentId: string) => void;
+  onOpenRequestDevice?: () => void;
+  onOpenChangePassword?: () => void;
 }
 
 export const MyAttendanceTab: React.FC<MyAttendanceTabProps> = ({
@@ -55,6 +60,8 @@ export const MyAttendanceTab: React.FC<MyAttendanceTabProps> = ({
   onOpenPrintModal,
   ceoComments = [],
   onMarkCeoCommentRead,
+  onOpenRequestDevice,
+  onOpenChangePassword,
 }) => {
   // Strict filter: ONLY records belonging to currentUser!
   const myAllRecords = useMemo(() => {
@@ -303,6 +310,74 @@ export const MyAttendanceTab: React.FC<MyAttendanceTabProps> = ({
             <FileText className="w-3.5 h-3.5" />
             <span>Print Official Timesheet (PDF)</span>
           </button>
+        </div>
+      </div>
+
+      {/* Device Binding & Account Security Card */}
+      <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900/50 flex items-center justify-center shrink-0">
+            <Smartphone className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Device Security & Portal Credentials
+              </h3>
+              {currentUser.registeredDeviceId ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                  <span>Bound & Approved</span>
+                </span>
+              ) : currentUser.pendingDeviceRequest?.status === 'pending' ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-700 animate-pulse">
+                  <span>⏳ Approval Pending</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                  <span>Unbound</span>
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {currentUser.registeredDeviceId ? (
+                <>
+                  Bound Device: <strong className="text-slate-700 dark:text-slate-200">{currentUser.registeredDeviceName || currentUser.registeredDeviceId}</strong> · Approved by {currentUser.deviceBoundApprovedBy || 'Administrator'}
+                </>
+              ) : currentUser.pendingDeviceRequest?.status === 'pending' ? (
+                <>
+                  Approval requested for: <strong className="text-amber-700 dark:text-amber-300">{currentUser.pendingDeviceRequest.deviceName}</strong> (Reason: "{currentUser.pendingDeviceRequest.reason}")
+                </>
+              ) : (
+                'No personal phone bound. Please submit a device binding request for Admin approval to punch attendance.'
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-stretch md:self-auto justify-end">
+          {onOpenRequestDevice && (
+            <button
+              type="button"
+              onClick={onOpenRequestDevice}
+              className="flex-1 md:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition-colors cursor-pointer"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-blue-600" />
+              <span>{currentUser.registeredDeviceId ? 'Request Phone Change' : 'Request Phone Approval'}</span>
+            </button>
+          )}
+
+          {onOpenChangePassword && (
+            <button
+              type="button"
+              onClick={onOpenChangePassword}
+              className="flex-1 md:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors cursor-pointer"
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>Change Password / PIN</span>
+            </button>
+          )}
         </div>
       </div>
 
