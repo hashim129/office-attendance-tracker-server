@@ -238,12 +238,14 @@ export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
                     className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
                       emp.role === 'admin'
                         ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300'
+                        : emp.role === 'ceo'
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200 border border-amber-300 dark:border-amber-700 font-black'
                         : emp.role === 'accounts'
                         ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
                         : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
                     }`}
                   >
-                    {emp.role === 'accounts' ? 'Accounts' : emp.role}
+                    {emp.role === 'ceo' ? 'CEO' : emp.role === 'accounts' ? 'Accounts' : emp.role}
                   </span>
                 </div>
 
@@ -453,6 +455,7 @@ export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
                 >
                   <option value="employee">Employee (Personal Reports & Self Punch Only)</option>
                   <option value="accounts">Accounts Officer (Audit, Timesheets & Attendance Verification)</option>
+                  <option value="ceo">Chief Executive Officer (CEO - Full Overview & Direct Mentions)</option>
                   <option value="admin">Administrator (Full Office Management & Settings)</option>
                 </select>
               </div>
