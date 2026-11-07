@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogOut, Shield, User, Monitor, Bell, Crown, Check, MessageSquare } from 'lucide-react';
+import { LogOut, Shield, User, Monitor, Bell, Crown, Check, MessageSquare, KeyRound } from 'lucide-react';
 import { ActiveDesktopTab, AppMode, CeoComment, Employee } from '../../types';
 
 interface DesktopHeaderProps {
@@ -9,6 +9,7 @@ interface DesktopHeaderProps {
   onSwitchToKiosk: () => void;
   ceoComments?: CeoComment[];
   onMarkCeoCommentRead?: (commentId: string) => void;
+  onOpenChangePassword?: () => void;
 }
 
 export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
@@ -18,6 +19,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   onSwitchToKiosk,
   ceoComments = [],
   onMarkCeoCommentRead,
+  onOpenChangePassword,
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -185,6 +187,18 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
               {currentUser.department} · {currentUser.employeeCode}
             </p>
           </div>
+
+          {/* Change PIN / Password button */}
+          {onOpenChangePassword && (
+            <button
+              onClick={onOpenChangePassword}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-blue-400 dark:hover:bg-slate-800 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
+              title="Change your portal password / PIN"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span className="hidden sm:inline">Password</span>
+            </button>
+          )}
 
           {/* Logout / Switch User */}
           <button
