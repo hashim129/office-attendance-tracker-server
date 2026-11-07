@@ -51,6 +51,8 @@ interface PunchClockTabProps {
   currentClientIp?: string;
   ceoComments?: CeoComment[];
   onMarkCeoCommentRead?: (commentId: string) => void;
+  onOpenRequestDevice?: () => void;
+  onOpenChangePassword?: () => void;
 }
 
 export const PunchClockTab: React.FC<PunchClockTabProps> = ({
@@ -67,6 +69,8 @@ export const PunchClockTab: React.FC<PunchClockTabProps> = ({
   currentClientIp = 'Detecting...',
   ceoComments = [],
   onMarkCeoCommentRead,
+  onOpenRequestDevice,
+  onOpenChangePassword,
 }) => {
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [actionNotes, setActionNotes] = useState<string>('');
@@ -403,9 +407,11 @@ export const PunchClockTab: React.FC<PunchClockTabProps> = ({
             {/* 2. Anti-Proxy Single-Device Verification Banner */}
             {settings.enforceDeviceBinding && (
               <div
-                className={`p-3 rounded-xl border flex items-start justify-between gap-3 ${
+                className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-start justify-between gap-3 ${
                   isPunchBlockedByDevice
                     ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-200'
+                    : currentUser.pendingDeviceRequest?.status === 'pending'
+                    ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/80 text-amber-900 dark:text-amber-200'
                     : deviceCheck.shouldRegister
                     ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-900/50 text-indigo-900 dark:text-indigo-200'
                     : 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/50 text-blue-900 dark:text-blue-200'
@@ -414,25 +420,43 @@ export const PunchClockTab: React.FC<PunchClockTabProps> = ({
                 <div className="flex items-start gap-2.5">
                   <Smartphone className="w-4 h-4 shrink-0 mt-0.5" />
                   <div className="text-xs">
-                    <div className="font-bold">
-                      {isPunchBlockedByDevice
-                        ? 'Anti-Proxy Security: Device Mismatch'
-                        : deviceCheck.shouldRegister
-                        ? 'Personal Device Registration'
-                        : 'Authorized Personal Device Bound'}
+                    <div className="font-bold flex items-center gap-1.5">
+                      <span>
+                        {isPunchBlockedByDevice
+                          ? 'Anti-Proxy Security: Device Unapproved'
+                          : currentUser.pendingDeviceRequest?.status === 'pending'
+                          ? 'Phone Approval Request Pending Admin Review'
+                          : deviceCheck.shouldRegister
+                          ? 'Personal Phone Binding Required'
+                          : 'Authorized Personal Device Bound'}
+                      </span>
                     </div>
                     <p className="text-[11px] opacity-90 mt-0.5">
                       {isPunchBlockedByDevice
                         ? deviceCheck.reason
+                        : currentUser.pendingDeviceRequest?.status === 'pending'
+                        ? `Awaiting Admin approval for: "${currentUser.pendingDeviceRequest.deviceName}". You will be able to punch once approved.`
                         : deviceCheck.shouldRegister
-                        ? 'This smartphone will be permanently bound to your account on your first punch. Proxy punching by colleagues is prohibited.'
-                        : `Device Verified: ${currentUser.registeredDeviceName || deviceCheck.currentDeviceName}`}
+                        ? 'Your device requires Admin approval before attendance can be marked. Request binding below.'
+                        : `Device Verified & Approved: ${currentUser.registeredDeviceName || deviceCheck.currentDeviceName}`}
                     </p>
                   </div>
                 </div>
-                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-white/80 dark:bg-slate-900/80 border border-current/20 shrink-0 max-w-[120px] truncate">
-                  {deviceCheck.currentDeviceName.split('·')[0]}
-                </span>
+
+                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-white/80 dark:bg-slate-900/80 border border-current/20 max-w-[120px] truncate">
+                    {deviceCheck.currentDeviceName.split('·')[0]}
+                  </span>
+                  {onOpenRequestDevice && (
+                    <button
+                      type="button"
+                      onClick={onOpenRequestDevice}
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-md bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      {currentUser.registeredDeviceId ? 'Request Change' : 'Request Approval'}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
