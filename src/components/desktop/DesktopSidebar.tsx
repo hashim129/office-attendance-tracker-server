@@ -28,6 +28,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   settings,
 }) => {
   const isAdmin = currentUser.role === 'admin';
+  const isCeo = currentUser.role === 'ceo';
+  const isAccounts = currentUser.role === 'accounts';
 
   return (
     <aside className="w-64 bg-slate-50/70 dark:bg-slate-900/60 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 select-none">
@@ -143,6 +145,55 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               >
                 <FileSpreadsheet className="w-4 h-4 shrink-0" />
                 <span>Reports & Payroll</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Executive Suite (Restricted to CEO Role) */}
+        {isCeo && (
+          <div>
+            <p className="px-3 text-[10px] font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400 mb-2 flex items-center gap-1.5">
+              <span>Executive Command (CEO)</span>
+            </p>
+            <div className="space-y-1">
+              <button
+                onClick={() => onSelectTab('team-attendance')}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                  activeTab === 'team-attendance'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                }`}
+                title="View presence & stats of all employees with CEO mentions"
+              >
+                <UserCheck className="w-4 h-4 shrink-0" />
+                <span>Team Roster & Mentions</span>
+              </button>
+
+              <button
+                onClick={() => onSelectTab('reports')}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                  activeTab === 'reports'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                }`}
+                title="View attendance analytics, work hours & stats of all staff"
+              >
+                <FileSpreadsheet className="w-4 h-4 shrink-0" />
+                <span>All Employees Analytics</span>
+              </button>
+
+              <button
+                onClick={() => onSelectTab('employees')}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                  activeTab === 'employees'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                }`}
+                title="View full employee directory"
+              >
+                <Users className="w-4 h-4 shrink-0" />
+                <span>Staff Directory</span>
               </button>
             </div>
           </div>
