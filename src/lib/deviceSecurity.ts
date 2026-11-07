@@ -108,6 +108,9 @@ export interface DeviceVerificationResult {
   currentDeviceId: string;
   currentDeviceName: string;
   conflictEmployee?: Employee;
+  requiresBindingRequest?: boolean;
+  isPendingApproval?: boolean;
+  isDeviceMismatch?: boolean;
 }
 
 /**
@@ -165,12 +168,21 @@ export function verifyDeviceAccess(
 
   // 2. Check if this employee already has a registered device
   if (!employee.registeredDeviceId) {
-    // First punch on their personal device -> automatically enrolls this device!
+    if (employee.pendingDeviceRequest && employee.pendingDeviceRequest.status === 'pending') {
+      return {
+        allowed: false,
+        reason: `Device Approval Pending: Your device binding request for "${employee.pendingDeviceRequest.requestedDeviceName}" has been submitted and is waiting for Administrator approval.`,
+        currentDeviceId: deviceId,
+        currentDeviceName: deviceLabel,
+        isPendingApproval: true,
+      };
+    }
     return {
-      allowed: true,
-      shouldRegister: true,
+      allowed: false,
+      reason: `Device Not Bound: Your account has no approved personal phone bound. To prevent proxy punching, all employee devices must be approved by an Administrator. Click "Request Phone Approval" below.`,
       currentDeviceId: deviceId,
       currentDeviceName: deviceLabel,
+      requiresBindingRequest: true,
     };
   }
 
@@ -184,10 +196,15 @@ export function verifyDeviceAccess(
   }
 
   // 4. Device Mismatch
+  const hasPending = employee.pendingDeviceRequest && employee.pendingDeviceRequest.status === 'pending';
   return {
     allowed: false,
-    reason: `Proxy Punch Blocked: Your account is locked to your registered personal device ("${employee.registeredDeviceName || 'Registered Device'}"). Punching from an unrecognized device is not permitted. Please use your own phone or ask an Admin to reset your device pairing.`,
+    reason: hasPending
+      ? `Phone Change Pending: Your request to switch your registered device to "${employee.pendingDeviceRequest?.requestedDeviceName}" is waiting for Administrator approval.`
+      : `Proxy Punch Blocked (Device Mismatch): Your account is locked to your approved personal phone ("${employee.registeredDeviceName || 'Registered Device'}"). Punching from an unrecognized device ("${deviceLabel}") is not permitted. Request an Admin approval below if you changed your phone.`,
     currentDeviceId: deviceId,
     currentDeviceName: deviceLabel,
+    isDeviceMismatch: true,
+    isPendingApproval: hasPending,
   };
 }
