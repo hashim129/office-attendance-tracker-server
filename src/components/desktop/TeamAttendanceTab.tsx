@@ -14,9 +14,16 @@ import {
   ShieldCheck,
   CheckCheck,
   Check,
+  Sunrise,
+  Sunset,
+  Crown,
+  MessageSquare,
+  Send,
+  LogOut,
 } from 'lucide-react';
 import {
   AttendanceRecord,
+  CeoComment,
   Employee,
   OfficeSettings,
   ShiftSchedule,
@@ -40,6 +47,8 @@ interface TeamAttendanceTabProps {
   onUpdateRecord: (updated: AttendanceRecord) => void;
   adminUser: Employee;
   currentUser?: Employee;
+  ceoComments?: CeoComment[];
+  onAddCeoComment?: (comment: Omit<CeoComment, 'id' | 'createdAt'>) => void;
 }
 
 export const TeamAttendanceTab: React.FC<TeamAttendanceTabProps> = ({
@@ -50,10 +59,14 @@ export const TeamAttendanceTab: React.FC<TeamAttendanceTabProps> = ({
   onUpdateRecord,
   adminUser,
   currentUser,
+  ceoComments = [],
+  onAddCeoComment,
 }) => {
   const effectiveUser = currentUser || adminUser;
   const isAdmin = effectiveUser.role === 'admin';
   const isAccountsOfficer = effectiveUser.role === 'accounts';
+  const isCeo = effectiveUser.role === 'ceo';
+  const canManage = isAdmin || isAccountsOfficer || isCeo;
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -65,8 +78,13 @@ export const TeamAttendanceTab: React.FC<TeamAttendanceTabProps> = ({
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [editTimeIn, setEditTimeIn] = useState<string>('');
   const [editTimeOut, setEditTimeOut] = useState<string>('');
+  const [isStillWorking, setIsStillWorking] = useState<boolean>(false);
   const [editAuditReason, setEditAuditReason] = useState<string>('');
   const [editStatus, setEditStatus] = useState<AttendanceRecord['status']>('present');
+
+  // CEO Mention / Comment Modal State
+  const [mentioningEmployee, setMentioningEmployee] = useState<Employee | null>(null);
+  const [mentionMessage, setMentionMessage] = useState<string>('');
 
   const departments = useMemo(() => {
     return Array.from(new Set(employees.map((e) => e.department))).sort();
@@ -271,26 +289,17 @@ export const TeamAttendanceTab: React.FC<TeamAttendanceTabProps> = ({
     if (existingRecord) {
       setEditingRecord(existingRecord);
       setEditTimeIn(existingRecord.timeIn || '09:00:00');
-      setEditTimeOut(existingRecord.timeOut || '17:00:00');
+      // If employee is clocked in without a punch out, preserve active working state
+      const hasClockedOut = !!existingRecord.timeOut;
+      setIsStillWorking(!hasClockedOut && !!existingRecord.timeIn);
+      setEditTimeOut(hasClockedOut ? existingRecord.timeOut! : '');
       setEditStatus(existingRecord.status);
       setEditAuditReason(existingRecord.adjustmentNote || '');
     } else {
       // New record for today
-      const newRec: AttendanceRecord = {
-        id: `att-${selectedDate}-${emp.id}`,
-        employeeId: emp.id,
-        date: selectedDate,
-        day: getDayName(selectedDate),
-        timeIn: '09:00:00',
-        timeOut: '17:00:00',
-        breaks: [],
-        totalWorkedMinutes: 480,
-        regularMinutes: 480,
-        overtimeMinutes: 0,
-        status: 'present',
-      };
-      setEditingRecord(newRec);
+      setEditingRecord(null);
       setEditTimeIn('09:00:00');
+      setIsStillWorking(false);
       setEditTimeOut('17:00:00');
       setEditStatus('present');
       setEditAuditReason('Manual retroactive attendance entry by administrator');
@@ -299,7 +308,7 @@ export const TeamAttendanceTab: React.FC<TeamAttendanceTabProps> = ({
 
   const handleSaveAdjustment = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingRecord || !editingEmployee) return;
+    if (!editingEmployee) return;
 
     if (!editAuditReason.trim()) {
       alert('Please provide an audit reason for modifying official attendance records.');
@@ -307,29 +316,59 @@ export const TeamAttendanceTab: React.FC<TeamAttendanceTabProps> = ({
     }
 
     const shift = shiftMap.get(editingEmployee.shiftId) || shifts[0];
+    const finalTimeOut = isStillWorking ? undefined : (editTimeOut.trim() || undefined);
     const worked = calculateWorkedMinutes(
       editTimeIn,
-      editTimeOut || undefined,
-      editingRecord.breaks,
+      finalTimeOut,
+      editingRecord?.breaks || [],
       shift.expectedHours
     );
 
     const updated: AttendanceRecord = {
-      ...editingRecord,
+      ...(editingRecord || {
+        id: `att-${selectedDate}-${editingEmployee.id}`,
+        employeeId: editingEmployee.id,
+        date: selectedDate,
+        day: getDayName(selectedDate),
+        breaks: [],
+      }),
       timeIn: editTimeIn,
-      timeOut: editTimeOut || undefined,
+      timeOut: finalTimeOut,
       totalWorkedMinutes: worked.totalWorkedMinutes,
       regularMinutes: worked.regularMinutes,
       overtimeMinutes: worked.overtimeMinutes,
       status: editStatus,
       isManuallyAdjusted: true,
       adjustmentNote: editAuditReason.trim(),
-      adjustedBy: `${adminUser.name} (${adminUser.employeeCode})`,
+      adjustedBy: `${effectiveUser.name} (${effectiveUser.employeeCode})`,
     };
 
     onUpdateRecord(updated);
     setEditingRecord(null);
     setEditingEmployee(null);
+  };
+
+  const handleOpenMentionModal = (emp: Employee) => {
+    setMentioningEmployee(emp);
+    setMentionMessage('');
+  };
+
+  const handleSendCeoMention = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mentioningEmployee || !mentionMessage.trim() || !onAddCeoComment) return;
+
+    onAddCeoComment({
+      employeeId: mentioningEmployee.id,
+      employeeName: mentioningEmployee.name,
+      fromName: effectiveUser.name,
+      fromRole: effectiveUser.role,
+      message: mentionMessage.trim(),
+      date: selectedDate,
+    });
+
+    alert(`Directive/Mention successfully sent to ${mentioningEmployee.name}! It will appear in their notifications and dashboard.`);
+    setMentioningEmployee(null);
+    setMentionMessage('');
   };
 
   const handleExportToday = () => {
@@ -567,7 +606,7 @@ export const TeamAttendanceTab: React.FC<TeamAttendanceTabProps> = ({
                 <th className="py-3 px-3 text-center">Working Status</th>
                 <th className="py-3 px-3 text-center">Admin Verify</th>
                 <th className="py-3 px-3 text-center">Accounts Verify</th>
-                {(isAdmin || isAccountsOfficer) && (
+                {(isAdmin || isAccountsOfficer || isCeo) && (
                   <th className="py-3 px-3 text-right">Actions</th>
                 )}
               </tr>
@@ -575,7 +614,7 @@ export const TeamAttendanceTab: React.FC<TeamAttendanceTabProps> = ({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {teamRoster.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin || isAccountsOfficer ? 10 : 9} className="py-12 text-center text-slate-400">
+                  <td colSpan={isAdmin || isAccountsOfficer || isCeo ? 10 : 9} className="py-12 text-center text-slate-400">
                     No employees matched the selected filters.
                   </td>
                 </tr>
@@ -629,28 +668,34 @@ export const TeamAttendanceTab: React.FC<TeamAttendanceTabProps> = ({
                       </td>
 
                       {/* Time In Column */}
-                      <td className="py-3 px-3 font-mono font-bold text-slate-900 dark:text-slate-100">
+                      <td className="py-3 px-3">
                         {record?.timeIn ? (
-                          <span className="inline-block px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 font-bold">
-                            {formatTime12h(record.timeIn)}
-                          </span>
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs font-mono font-bold text-xs">
+                            <Sunrise className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span>{formatTime12h(record.timeIn)}</span>
+                          </div>
                         ) : (
                           <span className="text-slate-400 font-sans font-normal">—</span>
                         )}
                       </td>
 
-                      <td className="py-3 px-3 font-mono font-medium">
+                      {/* Time Out Column */}
+                      <td className="py-3 px-3">
                         {record?.timeOut ? (
-                          <div>
-                            <span>{formatTime12h(record.timeOut)}</span>
+                          <div className="inline-flex flex-col">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 shadow-2xs font-mono font-bold text-xs">
+                              <Sunset className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span>{formatTime12h(record.timeOut)}</span>
+                            </div>
                             {record.isAutoPunchedOut && (
-                              <span className="block text-[9px] text-amber-600 dark:text-amber-400 font-sans font-semibold">
+                              <span className="text-[9px] text-amber-600 dark:text-amber-400 font-sans font-semibold mt-0.5">
                                 Auto 11:59 PM
                               </span>
                             )}
                           </div>
                         ) : record?.timeIn ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-sans text-[11px]">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-bold text-[11px] animate-pulse">
+                            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                             Working
                           </span>
                         ) : (
@@ -754,10 +799,22 @@ export const TeamAttendanceTab: React.FC<TeamAttendanceTabProps> = ({
                         )}
                       </td>
 
-                      {/* Actions Column (Admin & Accounts Officer) */}
-                      {(isAdmin || isAccountsOfficer) && (
+                      {/* Actions Column (Admin, Accounts Officer & CEO) */}
+                      {(isAdmin || isAccountsOfficer || isCeo) && (
                         <td className="py-3 px-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            {/* CEO / Management Mention Directive */}
+                            {(isCeo || isAdmin) && onAddCeoComment && (
+                              <button
+                                onClick={() => handleOpenMentionModal(employee)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-500 hover:bg-amber-600 text-white shadow-2xs transition-colors cursor-pointer"
+                                title={`Send executive directive or mention comment to ${employee.name}`}
+                              >
+                                <MessageSquare className="w-3 h-3" />
+                                <span>Mention</span>
+                              </button>
+                            )}
+
                             {/* Admin Verification Action */}
                             {isAdmin && record?.timeIn && (
                               <button
@@ -842,17 +899,43 @@ export const TeamAttendanceTab: React.FC<TeamAttendanceTabProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Time Out (HH:mm:ss)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+                    Time Out (HH:mm:ss)
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                    <input
+                      type="checkbox"
+                      checked={isStillWorking}
+                      onChange={(e) => {
+                        setIsStillWorking(e.target.checked);
+                        if (e.target.checked) {
+                          setEditTimeOut('');
+                        } else {
+                          setEditTimeOut(editingRecord?.timeOut || '17:00:00');
+                        }
+                      }}
+                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <span>Currently Working (No Punch Out)</span>
+                  </label>
+                </div>
                 <input
                   type="text"
                   value={editTimeOut}
+                  disabled={isStillWorking}
                   onChange={(e) => setEditTimeOut(e.target.value)}
-                  placeholder="17:00:00"
+                  placeholder={isStillWorking ? 'Currently Working (No Punch Out)' : '17:00:00'}
                   pattern="^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$"
-                  className="w-full text-xs font-mono px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100"
+                  className={`w-full text-xs font-mono px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 ${
+                    isStillWorking ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-900' : ''
+                  }`}
                 />
+                {isStillWorking && (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-1">
+                    Employee will remain clocked in as actively working on shift.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -906,6 +989,68 @@ export const TeamAttendanceTab: React.FC<TeamAttendanceTabProps> = ({
                 className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs"
               >
                 Save Attendance Adjustment
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* CEO / Management Mention Modal */}
+      {mentioningEmployee && (
+        <Modal
+          isOpen={!!mentioningEmployee}
+          onClose={() => {
+            setMentioningEmployee(null);
+            setMentionMessage('');
+          }}
+          title={`Executive Mention / Directive: ${mentioningEmployee.name}`}
+          subtitle={`Department: ${mentioningEmployee.department} · Code: ${mentioningEmployee.employeeCode}`}
+        >
+          <form onSubmit={handleSendCeoMention} className="space-y-4">
+            <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-start gap-2.5">
+              <Crown className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-900 dark:text-amber-200">
+                <p className="font-bold">
+                  Sending as {effectiveUser.role.toUpperCase()}: {effectiveUser.name}
+                </p>
+                <p className="mt-0.5 text-amber-700 dark:text-amber-300">
+                  This directive will be delivered immediately to{' '}
+                  <strong>{mentioningEmployee.name}</strong> as a high-priority notification.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Directive / Comment Message
+              </label>
+              <textarea
+                value={mentionMessage}
+                onChange={(e) => setMentionMessage(e.target.value)}
+                placeholder="e.g. Great punctuality this week! Please make sure to review client reports before 4 PM."
+                rows={4}
+                required
+                className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setMentioningEmployee(null);
+                  setMentionMessage('');
+                }}
+                className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-xs cursor-pointer"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Send Mention Notification</span>
               </button>
             </div>
           </form>
