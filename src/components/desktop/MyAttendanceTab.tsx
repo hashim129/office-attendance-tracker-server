@@ -9,6 +9,11 @@ import {
   AlertTriangle,
   TrendingUp,
   Search,
+  BarChart3,
+  PieChart,
+  Target,
+  Activity,
+  Sparkles,
 } from 'lucide-react';
 import {
   AttendanceRecord,
@@ -21,6 +26,8 @@ import {
   formatMinutesToDecimal,
   formatMinutesToHoursMinutes,
   formatTime12h,
+  getDayName,
+  getTodayDateString,
 } from '../../lib/attendanceCalculations';
 import { exportAttendanceToCsv } from '../../lib/exportUtils';
 
@@ -121,6 +128,59 @@ export const MyAttendanceTab: React.FC<MyAttendanceTabProps> = ({
     };
   }, [filteredRecords]);
 
+  // Current week worked minutes calculation (Monday through Sunday)
+  const currentWeekStats = useMemo(() => {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 is Sun, 1 is Mon...
+    const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + diffToMon);
+    monday.setHours(0, 0, 0, 0);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+
+    const monStr = monday.toISOString().slice(0, 10);
+    const sunStr = sunday.toISOString().slice(0, 10);
+
+    const weekRecords = myAllRecords.filter((r) => r.date >= monStr && r.date <= sunStr);
+    const weekWorkedMins = weekRecords.reduce((acc, r) => acc + (r.totalWorkedMinutes || 0), 0);
+    const targetMins = 40 * 60; // 40 hours target
+    const percent = Math.min(100, Math.round((weekWorkedMins / targetMins) * 100));
+
+    return {
+      weekWorkedMins,
+      targetMins,
+      percent,
+      monStr,
+      sunStr,
+    };
+  }, [myAllRecords]);
+
+  // Chronological recent days (up to 10 days) for the interactive bar chart
+  const recentDaysForChart = useMemo(() => {
+    const slice = filteredRecords.slice(0, 10).reverse();
+    return slice.map((r) => {
+      const workedHours = (r.totalWorkedMinutes || 0) / 60;
+      const regularHours = (r.regularMinutes || 0) / 60;
+      const overtimeHours = (r.overtimeMinutes || 0) / 60;
+      return {
+        id: r.id,
+        date: r.date,
+        shortDate: r.date.slice(5),
+        day: r.day.slice(0, 3),
+        fullDay: r.day,
+        timeIn: r.timeIn,
+        timeOut: r.timeOut,
+        workedHours,
+        regularHours,
+        overtimeHours,
+        isLate: r.status === 'late',
+      };
+    });
+  }, [filteredRecords]);
+
   const handleDownloadCsv = () => {
     exportAttendanceToCsv({
       records: filteredRecords,
@@ -133,15 +193,30 @@ export const MyAttendanceTab: React.FC<MyAttendanceTabProps> = ({
     });
   };
 
+  const todayStr = getTodayDateString();
+  const dayName = getDayName(todayStr);
+
   return (
     <div className="space-y-6">
       {/* Header with Title and Download Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <span>My Personal Attendance & Stats</span>
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <span>My Personal Attendance & Stats</span>
+            </h1>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-emerald-100/90 dark:bg-emerald-950/80 border-2 border-emerald-400 dark:border-emerald-600 shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs font-black text-emerald-900 dark:text-emerald-200">
+                {todayStr}
+              </span>
+              <span className="text-emerald-500 font-bold">•</span>
+              <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">
+                {dayName}
+              </span>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Individual timesheet records for {currentUser.name} ({currentUser.employeeCode})
           </p>
         </div>
@@ -232,6 +307,244 @@ export const MyAttendanceTab: React.FC<MyAttendanceTabProps> = ({
           <p className="text-[11px] text-slate-400 mt-1">
             {stats.lateCount} late arrival{stats.lateCount === 1 ? '' : 's'} flagged
           </p>
+        </div>
+      </div>
+
+      {/* Graphical Representation of Stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Daily Worked Hours Interactive Bar Chart (2 cols) */}
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center">
+                <BarChart3 className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  Daily Work Hours Trend
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Logged hours with 8.0h standard shift guideline & overtime highlights
+                </p>
+              </div>
+            </div>
+
+            {/* Chart Legend */}
+            <div className="flex items-center gap-3 text-[11px]">
+              <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                <span className="w-2.5 h-2.5 rounded-xs bg-blue-500"></span>
+                Regular (up to 8h)
+              </span>
+              <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                <span className="w-2.5 h-2.5 rounded-xs bg-amber-500"></span>
+                Overtime
+              </span>
+              <span className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-semibold">
+                <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                Late Arrival
+              </span>
+            </div>
+          </div>
+
+          {/* Bar Chart Container */}
+          {recentDaysForChart.length === 0 ? (
+            <div className="py-12 text-center text-xs text-slate-400">
+              No daily attendance records in this period to graph.
+            </div>
+          ) : (
+            <div className="relative pt-6 pb-2">
+              {/* 8.0h Reference Line across the chart */}
+              <div
+                className="absolute left-0 right-0 border-b-2 border-dashed border-emerald-400/80 dark:border-emerald-600 z-10 pointer-events-none flex items-center justify-end pr-2"
+                style={{ bottom: `${(8 / 12) * 100}%` }}
+                title="8.0h Standard Target"
+              >
+                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-white/95 dark:bg-slate-900/95 px-1.5 py-0.5 rounded shadow-2xs border border-emerald-300 dark:border-emerald-700">
+                  8.0h Standard Shift
+                </span>
+              </div>
+
+              {/* Chart Plot Area */}
+              <div className="h-44 flex items-end justify-between gap-2 px-2 border-b border-slate-200 dark:border-slate-800">
+                {recentDaysForChart.map((d) => {
+                  const maxChartHours = 12;
+                  const totalPercent = Math.min(100, Math.max(8, (d.workedHours / maxChartHours) * 100));
+                  const overtimePercent = d.workedHours > 0 ? Math.min(100, (d.overtimeHours / d.workedHours) * 100) : 0;
+
+                  return (
+                    <div
+                      key={d.id}
+                      className="group relative flex-1 flex flex-col items-center h-full justify-end cursor-pointer"
+                    >
+                      {/* Hover Tooltip Card */}
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none absolute -top-16 z-30 bg-slate-900 text-white text-[10px] rounded-lg py-1.5 px-2.5 shadow-xl whitespace-nowrap">
+                        <p className="font-bold text-emerald-400">
+                          {d.fullDay}, {d.date}
+                        </p>
+                        <p className="text-slate-200">
+                          Total: <strong className="text-white">{d.workedHours.toFixed(1)}h</strong> ({d.timeIn ? formatTime12h(d.timeIn) : '—'} - {d.timeOut ? formatTime12h(d.timeOut) : 'In Progress'})
+                        </p>
+                        {d.overtimeHours > 0 && (
+                          <p className="text-amber-300 font-semibold">
+                            +{d.overtimeHours.toFixed(1)}h Overtime
+                          </p>
+                        )}
+                        {d.isLate && <p className="text-purple-300 font-bold">Late Arrival</p>}
+                      </div>
+
+                      {/* Bar Visual (Regular + Overtime stacked) */}
+                      <div
+                        className="w-full max-w-[36px] rounded-t-md overflow-hidden flex flex-col justify-end transition-all group-hover:brightness-110 shadow-xs"
+                        style={{ height: `${totalPercent}%` }}
+                      >
+                        {/* Overtime stack segment */}
+                        {d.overtimeHours > 0 && (
+                          <div
+                            className="w-full bg-gradient-to-t from-amber-500 to-amber-400"
+                            style={{ height: `${overtimePercent}%` }}
+                            title={`Overtime: ${d.overtimeHours.toFixed(1)}h`}
+                          />
+                        )}
+                        {/* Regular stack segment */}
+                        <div
+                          className={`w-full flex-1 ${
+                            d.isLate
+                              ? 'bg-gradient-to-t from-purple-600 to-indigo-500'
+                              : 'bg-gradient-to-t from-blue-600 to-emerald-500'
+                          }`}
+                          title={`Regular: ${d.regularHours.toFixed(1)}h`}
+                        />
+                      </div>
+
+                      {/* Late arrival dot indicator */}
+                      {d.isLate && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* X-Axis Labels */}
+              <div className="flex items-center justify-between gap-2 px-2 pt-2 text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                {recentDaysForChart.map((d) => (
+                  <div key={d.id} className="flex-1 text-center truncate">
+                    <span className="font-semibold block">{d.day}</span>
+                    <span className="text-[9px] text-slate-400">{d.shortDate}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Col: Punctuality Ring & Weekly Target Meter */}
+        <div className="space-y-4 flex flex-col justify-between">
+          {/* Punctuality Ring / Doughnut Chart */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-4">
+            {/* SVG Ring */}
+            <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                {/* Background Ring */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="38"
+                  className="stroke-slate-100 dark:stroke-slate-800"
+                  strokeWidth="10"
+                  fill="transparent"
+                />
+                {/* Progress Ring (Emerald) */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="38"
+                  className="stroke-emerald-500 transition-all duration-700 ease-out"
+                  strokeWidth="10"
+                  strokeDasharray="238.76"
+                  strokeDashoffset={238.76 - (238.76 * stats.onTimeRate) / 100}
+                  strokeLinecap="round"
+                  fill="transparent"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-base font-black font-mono text-slate-900 dark:text-slate-100">
+                  {stats.onTimeRate}%
+                </span>
+                <span className="text-[8px] uppercase tracking-wider text-slate-400 font-bold">
+                  On-Time
+                </span>
+              </div>
+            </div>
+
+            {/* Punctuality Details */}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-slate-100">
+                <PieChart className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Punctuality Ratio</span>
+              </div>
+              <div className="mt-2 space-y-1 text-[11px]">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    On-Time:
+                  </span>
+                  <strong className="text-slate-900 dark:text-slate-100 font-mono">
+                    {Math.max(0, stats.presentCount - stats.lateCount)} days
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                    Late Arrivals:
+                  </span>
+                  <strong className="text-purple-600 dark:text-purple-400 font-mono">
+                    {stats.lateCount} days
+                  </strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Weekly 40-Hour Target Meter */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-slate-100">
+                <Target className="w-3.5 h-3.5 text-blue-600" />
+                <span>Weekly Work Target (40h)</span>
+              </div>
+              <span className="text-xs font-black font-mono text-blue-600 dark:text-blue-400">
+                {currentWeekStats.percent}%
+              </span>
+            </div>
+
+            {/* Progress Bar Gauge */}
+            <div className="w-full bg-slate-100 dark:bg-slate-800 h-3 rounded-full overflow-hidden mt-3 p-0.5">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  currentWeekStats.percent >= 100
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                    : 'bg-gradient-to-r from-blue-600 to-emerald-500'
+                }`}
+                style={{ width: `${currentWeekStats.percent}%` }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 font-mono">
+              <span>{formatMinutesToHoursMinutes(currentWeekStats.weekWorkedMins)} logged</span>
+              <span>40h target</span>
+            </div>
+
+            {currentWeekStats.percent >= 100 ? (
+              <div className="mt-2 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 rounded px-2 py-0.5 text-center">
+                🎉 Weekly 40h Target Completed!
+              </div>
+            ) : (
+              <div className="mt-2 text-[10px] text-slate-500 text-center">
+                {formatMinutesToHoursMinutes(Math.max(0, currentWeekStats.targetMins - currentWeekStats.weekWorkedMins))} remaining this week
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -346,9 +659,17 @@ export const MyAttendanceTab: React.FC<MyAttendanceTabProps> = ({
                       key={r.id}
                       className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors"
                     >
-                      <td className="py-3 px-4 font-medium text-slate-900 dark:text-slate-100">
-                        <div>{r.date}</div>
-                        <div className="text-[11px] text-slate-400 font-normal">{r.day}</div>
+                      <td className="py-3 px-4">
+                        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-emerald-50/90 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700/80 shadow-2xs">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          <span className="font-bold text-xs text-emerald-900 dark:text-emerald-200">
+                            {r.date}
+                          </span>
+                          <span className="text-emerald-500 font-semibold">•</span>
+                          <span className="font-bold text-[10px] text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">
+                            {r.day}
+                          </span>
+                        </div>
                       </td>
 
                       <td className="py-3 px-4 font-mono font-medium text-slate-700 dark:text-slate-300">
