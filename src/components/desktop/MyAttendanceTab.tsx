@@ -14,9 +14,15 @@ import {
   Target,
   Activity,
   Sparkles,
+  Sunrise,
+  Sunset,
+  Crown,
+  MessageSquare,
+  Check,
 } from 'lucide-react';
 import {
   AttendanceRecord,
+  CeoComment,
   Employee,
   OfficeSettings,
   ShiftSchedule,
@@ -37,6 +43,8 @@ interface MyAttendanceTabProps {
   shifts: ShiftSchedule[];
   settings: OfficeSettings;
   onOpenPrintModal: (employee: Employee, filteredRecords: AttendanceRecord[]) => void;
+  ceoComments?: CeoComment[];
+  onMarkCeoCommentRead?: (commentId: string) => void;
 }
 
 export const MyAttendanceTab: React.FC<MyAttendanceTabProps> = ({
@@ -45,6 +53,8 @@ export const MyAttendanceTab: React.FC<MyAttendanceTabProps> = ({
   shifts,
   settings,
   onOpenPrintModal,
+  ceoComments = [],
+  onMarkCeoCommentRead,
 }) => {
   // Strict filter: ONLY records belonging to currentUser!
   const myAllRecords = useMemo(() => {
@@ -196,8 +206,61 @@ export const MyAttendanceTab: React.FC<MyAttendanceTabProps> = ({
   const todayStr = getTodayDateString();
   const dayName = getDayName(todayStr);
 
+  const myCeoDirectives = useMemo(() => {
+    return ceoComments.filter((c) => c.employeeId === currentUser.id);
+  }, [ceoComments, currentUser.id]);
+
   return (
     <div className="space-y-6">
+      {/* Unread Executive Directives Banner */}
+      {myCeoDirectives.filter((c) => !c.isRead).length > 0 && (
+        <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/60 border-2 border-amber-300 dark:border-amber-700 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 font-bold text-xs">
+              <Crown className="w-4 h-4 text-amber-600" />
+              <span>Official Executive Mentions / Directives ({myCeoDirectives.filter((c) => !c.isRead).length})</span>
+            </div>
+            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium uppercase tracking-wider">
+              High Priority
+            </span>
+          </div>
+          <div className="space-y-2">
+            {myCeoDirectives
+              .filter((c) => !c.isRead)
+              .map((comment) => (
+                <div
+                  key={comment.id}
+                  className="p-3 rounded-lg bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 flex items-start justify-between gap-3"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100">
+                        {comment.fromName} ({comment.fromRole.toUpperCase()})
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {new Date(comment.createdAt).toLocaleDateString()} {new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                      "{comment.message}"
+                    </p>
+                  </div>
+                  {onMarkCeoCommentRead && (
+                    <button
+                      onClick={() => onMarkCeoCommentRead(comment.id)}
+                      className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-xs font-semibold transition-colors cursor-pointer"
+                      title="Acknowledge directive"
+                    >
+                      <Check className="w-3 h-3" />
+                      <span>Mark Read</span>
+                    </button>
+                  )}
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
       {/* Header with Title and Download Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -665,24 +728,44 @@ export const MyAttendanceTab: React.FC<MyAttendanceTabProps> = ({
                           <span className="font-bold text-xs text-emerald-900 dark:text-emerald-200">
                             {r.date}
                           </span>
-                          <span className="text-emerald-500 font-semibold">•</span>
-                          <span className="font-bold text-[10px] text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">
+                          <span className="text-emerald-500 font-bold">•</span>
+                          <strong className="font-black text-xs text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">
                             {r.day}
-                          </span>
+                          </strong>
                         </div>
                       </td>
 
-                      <td className="py-3 px-4 font-mono font-medium text-slate-700 dark:text-slate-300">
-                        {formatTime12h(r.timeIn)}
+                      <td className="py-3 px-4">
+                        {r.timeIn ? (
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 shadow-2xs">
+                            <Sunrise className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span className="font-mono font-bold text-xs">{formatTime12h(r.timeIn)}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 font-sans text-xs">—</span>
+                        )}
                       </td>
 
-                      <td className="py-3 px-4 font-mono font-medium text-slate-700 dark:text-slate-300">
+                      <td className="py-3 px-4">
                         {r.timeOut ? (
-                          formatTime12h(r.timeOut)
-                        ) : (
-                          <span className="text-amber-600 dark:text-amber-400 font-sans text-[11px]">
-                            In Progress
+                          <div className="inline-flex flex-col">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 shadow-2xs">
+                              <Sunset className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span className="font-mono font-bold text-xs">{formatTime12h(r.timeOut)}</span>
+                            </div>
+                            {r.isAutoPunchedOut && (
+                              <span className="text-[9px] text-amber-600 dark:text-amber-400 font-sans font-semibold mt-0.5">
+                                Auto 11:59 PM
+                              </span>
+                            )}
+                          </div>
+                        ) : r.timeIn ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-bold text-[11px] animate-pulse">
+                            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                            Working
                           </span>
+                        ) : (
+                          <span className="text-slate-400 font-sans text-xs">—</span>
                         )}
                       </td>
 
