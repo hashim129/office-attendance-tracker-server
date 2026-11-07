@@ -91,6 +91,9 @@ export function exportAttendanceToCsv({
     'Regular Hours',
     'Overtime Hours',
     'Status',
+    'Admin Verification',
+    'Accounts Verification',
+    'Auto Closed (11:59 PM)',
     'Notes / Remarks',
   ];
 
@@ -98,6 +101,14 @@ export function exportAttendanceToCsv({
     const emp = empMap.get(rec.employeeId);
     const shift = emp ? shiftMap.get(emp.shiftId) : undefined;
     const breakMins = calculateBreaksDuration(rec.breaks);
+
+    const adminVer = rec.adminVerification?.verified
+      ? `Verified (${rec.adminVerification.verifiedByName || 'Admin'})`
+      : 'Unverified';
+    const accountsVer = rec.accountsVerification?.verified
+      ? `Verified (${rec.accountsVerification.verifiedByName || 'Accounts'})`
+      : 'Unverified';
+    const autoOut = rec.isAutoPunchedOut ? 'Yes' : 'No';
 
     return [
       escapeCsvCell(rec.date),
@@ -115,6 +126,9 @@ export function exportAttendanceToCsv({
       escapeCsvCell(formatMinutesToDecimal(rec.regularMinutes)),
       escapeCsvCell(formatMinutesToDecimal(rec.overtimeMinutes)),
       escapeCsvCell(rec.status.toUpperCase()),
+      escapeCsvCell(adminVer),
+      escapeCsvCell(accountsVer),
+      escapeCsvCell(autoOut),
       escapeCsvCell(rec.notes || (rec.isManuallyAdjusted ? `Adjusted: ${rec.adjustmentNote}` : '')),
     ].join(',');
   });
