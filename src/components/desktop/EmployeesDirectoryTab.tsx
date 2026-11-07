@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Users,
   UserPlus,
@@ -12,34 +12,68 @@ import {
   Building,
   Smartphone,
   RotateCcw,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Clock,
+  ShieldCheck,
+  History,
 } from 'lucide-react';
-import { Employee, Role, ShiftSchedule } from '../../types';
+import { Employee, Role, ShiftSchedule, AttendanceRecord } from '../../types';
 import { Modal } from '../common/Modal';
 
 interface EmployeesDirectoryTabProps {
   employees: Employee[];
   shifts: ShiftSchedule[];
+  records?: AttendanceRecord[];
   onAddEmployee: (emp: Omit<Employee, 'id'>) => void;
   onUpdateEmployee: (emp: Employee) => void;
   onDeleteEmployee: (empId: string) => void;
+  onApproveDeviceChange?: (empId: string) => void;
+  onRejectDeviceChange?: (empId: string) => void;
+  onResetDeviceBound?: (empId: string) => void;
   currentUserId: string;
 }
 
 export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
   employees,
   shifts,
+  records = [],
   onAddEmployee,
   onUpdateEmployee,
   onDeleteEmployee,
+  onApproveDeviceChange,
+  onRejectDeviceChange,
+  onResetDeviceBound,
   currentUserId,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedDept, setSelectedDept] = useState<string>('all');
+  const [deviceFilter, setDeviceFilter] = useState<'all' | 'pending' | 'bound' | 'unbound'>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [editingEmp, setEditingEmp] = useState<Employee | null>(null);
   const [deletingEmp, setDeletingEmp] = useState<Employee | null>(null);
 
   const firstActiveShift = shifts.find((s) => s.isActive !== false) || shifts[0];
+
+  // Device Stats for Admin
+  const deviceStats = useMemo(() => {
+    const boundCount = employees.filter((e) => !!e.registeredDeviceId).length;
+    const pendingCount = employees.filter(
+      (e) => e.pendingDeviceRequest && e.pendingDeviceRequest.status === 'pending'
+    ).length;
+    const totalChangesReset = employees.reduce(
+      (acc, e) => acc + (e.deviceChangeHistory?.length || 0),
+      0
+    );
+    const mismatchedPunchesCount = records.filter((r) => r.isDeviceMismatch).length;
+    return {
+      boundCount,
+      pendingCount,
+      totalChangesReset,
+      mismatchedPunchesCount,
+    };
+  }, [employees, records]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -61,6 +95,9 @@ export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
 
   const filteredEmployees = employees.filter((emp) => {
     if (selectedDept !== 'all' && emp.department !== selectedDept) return false;
+    if (deviceFilter === 'pending' && emp.pendingDeviceRequest?.status !== 'pending') return false;
+    if (deviceFilter === 'bound' && !emp.registeredDeviceId) return false;
+    if (deviceFilter === 'unbound' && !!emp.registeredDeviceId) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const matchName = emp.name.toLowerCase().includes(q);
@@ -73,9 +110,13 @@ export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
   });
 
   const handleResetDevice = (emp: Employee) => {
+    if (onResetDeviceBound) {
+      onResetDeviceBound(emp.id);
+      return;
+    }
     if (
       confirm(
-        `Reset device pairing for "${emp.name}"?\n\nTheir current personal device binding will be removed. The employee will be able to bind a new device on their next punch.`
+        `Reset device pairing for "${emp.name}"?\n\nTheir current personal device binding will be removed. The employee will need to submit a device binding request for Admin approval.`
       )
     ) {
       onUpdateEmployee({
@@ -83,6 +124,8 @@ export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
         registeredDeviceId: undefined,
         registeredDeviceName: undefined,
         registeredAt: undefined,
+        deviceBoundApprovedBy: undefined,
+        deviceBoundApprovedAt: undefined,
       });
     }
   };
@@ -178,33 +221,169 @@ export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
         </button>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div className="relative min-w-[260px]">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, code, email, designation..."
-            className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-slate-100 focus:outline-none"
-          />
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+      {/* Device Security & Policy Stats Cards for Admin */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Bound Devices */}
+        <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center justify-between text-slate-500 text-xs">
+            <span className="font-semibold uppercase tracking-wider text-[10px]">
+              Devices Bound
+            </span>
+            <Smartphone className="w-4 h-4 text-blue-600" />
+          </div>
+          <div className="text-xl font-black font-mono text-slate-900 dark:text-slate-100 mt-1">
+            {deviceStats.boundCount}{' '}
+            <span className="text-xs font-normal text-slate-400">/ {employees.length}</span>
+          </div>
+          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+            Personal phones secured
+          </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500">Department:</span>
-          <select
-            value={selectedDept}
-            onChange={(e) => setSelectedDept(e.target.value)}
-            className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-slate-100"
+        {/* Pending Phone Approvals */}
+        <div
+          className={`p-3.5 rounded-xl border shadow-2xs ${
+            deviceStats.pendingCount > 0
+              ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/80'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between text-slate-500 text-xs">
+            <span className="font-semibold uppercase tracking-wider text-[10px] text-amber-800 dark:text-amber-300">
+              Pending Approvals
+            </span>
+            <Clock className={`w-4 h-4 ${deviceStats.pendingCount > 0 ? 'text-amber-600 animate-spin' : 'text-slate-400'}`} />
+          </div>
+          <div className="text-xl font-black font-mono text-amber-700 dark:text-amber-300 mt-1">
+            {deviceStats.pendingCount}
+          </div>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+            {deviceStats.pendingCount > 0 ? 'Action required by Admin' : 'All requests resolved'}
+          </span>
+        </div>
+
+        {/* Devices Changed / Reset */}
+        <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center justify-between text-slate-500 text-xs">
+            <span className="font-semibold uppercase tracking-wider text-[10px]">
+              Devices Changed / Reset
+            </span>
+            <RotateCcw className="w-4 h-4 text-indigo-600" />
+          </div>
+          <div className="text-xl font-black font-mono text-slate-900 dark:text-slate-100 mt-1">
+            {deviceStats.totalChangesReset}
+          </div>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+            Total lifetime device resets
+          </span>
+        </div>
+
+        {/* Mismatched Punches Tagged */}
+        <div
+          className={`p-3.5 rounded-xl border shadow-2xs ${
+            deviceStats.mismatchedPunchesCount > 0
+              ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between text-slate-500 text-xs">
+            <span className="font-semibold uppercase tracking-wider text-[10px] text-rose-800 dark:text-rose-300">
+              Mismatched Punches Tagged
+            </span>
+            <AlertTriangle className="w-4 h-4 text-rose-600" />
+          </div>
+          <div className="text-xl font-black font-mono text-rose-700 dark:text-rose-300 mt-1">
+            {deviceStats.mismatchedPunchesCount}
+          </div>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+            Punched from unauthorized phone
+          </span>
+        </div>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="relative min-w-[260px] flex-1 max-w-md">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name, code, email, designation..."
+              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-slate-100 focus:outline-none"
+            />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">Department:</span>
+            <select
+              value={selectedDept}
+              onChange={(e) => setSelectedDept(e.target.value)}
+              className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-slate-100"
+            >
+              <option value="all">All Departments ({employees.length})</option>
+              {departments.map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Device Status Filter Chips */}
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+          <span className="text-xs font-semibold text-slate-500">Device Filter:</span>
+          <button
+            type="button"
+            onClick={() => setDeviceFilter('all')}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+              deviceFilter === 'all'
+                ? 'bg-blue-600 text-white font-bold'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+            }`}
           >
-            <option value="all">All Departments ({employees.length})</option>
-            {departments.map((dept) => (
-              <option key={dept} value={dept}>
-                {dept}
-              </option>
-            ))}
-          </select>
+            All Staff ({employees.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeviceFilter('pending')}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+              deviceFilter === 'pending'
+                ? 'bg-amber-600 text-white font-bold'
+                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100'
+            }`}
+          >
+            <span>Pending Phone Approval</span>
+            {deviceStats.pendingCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-100">
+                {deviceStats.pendingCount}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeviceFilter('bound')}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+              deviceFilter === 'bound'
+                ? 'bg-emerald-600 text-white font-bold'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            Devices Bound ({deviceStats.boundCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeviceFilter('unbound')}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+              deviceFilter === 'unbound'
+                ? 'bg-slate-700 text-white font-bold'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            Unbound ({employees.length - deviceStats.boundCount})
+          </button>
         </div>
       </div>
 
@@ -249,6 +428,51 @@ export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
                   </span>
                 </div>
 
+                {/* Pending Phone Binding Request Box */}
+                {emp.pendingDeviceRequest && emp.pendingDeviceRequest.status === 'pending' && (
+                  <div className="mt-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/70 text-xs space-y-2">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-900 dark:text-amber-200">
+                      <Smartphone className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                      <span>Pending Phone Approval Request</span>
+                    </div>
+                    <div className="text-[11px] text-slate-700 dark:text-slate-300 space-y-0.5">
+                      <p>
+                        <strong>Device:</strong> {emp.pendingDeviceRequest.deviceName}
+                      </p>
+                      {emp.pendingDeviceRequest.reason && (
+                        <p>
+                          <strong>Reason:</strong> "{emp.pendingDeviceRequest.reason}"
+                        </p>
+                      )}
+                      <p className="text-[10px] text-slate-500">
+                        Requested: {new Date(emp.pendingDeviceRequest.requestedAt).toLocaleDateString()} {new Date(emp.pendingDeviceRequest.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      {onApproveDeviceChange && (
+                        <button
+                          type="button"
+                          onClick={() => onApproveDeviceChange(emp.id)}
+                          className="flex-1 py-1 px-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center justify-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                        >
+                          <CheckCircle className="w-3 h-3" />
+                          <span>Approve Phone</span>
+                        </button>
+                      )}
+                      {onRejectDeviceChange && (
+                        <button
+                          type="button"
+                          onClick={() => onRejectDeviceChange(emp.id)}
+                          className="flex-1 py-1 px-2 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] flex items-center justify-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                        >
+                          <XCircle className="w-3 h-3" />
+                          <span>Decline</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Details */}
                 <div className="mt-4 space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
                   <div className="flex items-center gap-2">
@@ -286,16 +510,31 @@ export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
                     <span className="text-slate-500">Bound Device:</span>
                     {emp.registeredDeviceId ? (
                       <span
-                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-900/50 max-w-[140px] truncate"
-                        title={`${emp.registeredDeviceName || emp.registeredDeviceId} (Paired on ${emp.registeredAt ? new Date(emp.registeredAt).toLocaleDateString() : 'N/A'})`}
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-900/50 max-w-[150px] truncate"
+                        title={`${emp.registeredDeviceName || emp.registeredDeviceId} (Approved: ${emp.deviceBoundApprovedBy || 'Admin'})`}
                       >
                         <Smartphone className="w-3 h-3 shrink-0 text-blue-600 dark:text-blue-400" />
                         <span className="truncate">{emp.registeredDeviceName?.split('·')[0] || 'Personal Device'}</span>
+                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 ml-0.5">✓</span>
                       </span>
                     ) : (
-                      <span className="text-[10px] text-slate-400 italic">No Device (Auto-Pairs)</span>
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold italic">
+                        Unbound (Requires Approval)
+                      </span>
                     )}
                   </div>
+
+                  {emp.deviceChangeHistory && emp.deviceChangeHistory.length > 0 && (
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5">
+                      <span className="flex items-center gap-1">
+                        <History className="w-2.5 h-2.5 text-slate-400" />
+                        <span>Device Resets:</span>
+                      </span>
+                      <span className="font-mono font-bold text-slate-700 dark:text-slate-300">
+                        {emp.deviceChangeHistory.length} recorded
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -304,11 +543,11 @@ export const EmployeesDirectoryTab: React.FC<EmployeesDirectoryTabProps> = ({
                 {emp.registeredDeviceId && (
                   <button
                     onClick={() => handleResetDevice(emp)}
-                    className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40 transition-colors cursor-pointer"
-                    title="Reset device pairing so employee can bind a new phone"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 dark:text-amber-300 dark:bg-amber-950/50 dark:hover:bg-amber-900/50 border border-amber-200 dark:border-amber-800 transition-colors cursor-pointer"
+                    title="Reset device pairing so employee can request or bind a new phone"
                   >
                     <RotateCcw className="w-3 h-3" />
-                    <span>Reset Device</span>
+                    <span>Reset Device Bound</span>
                   </button>
                 )}
 
