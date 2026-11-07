@@ -591,19 +591,18 @@ export default function App() {
                 />
               )}
 
-              {/* Team Attendance & Verification - Protected for Admin and Accounts Officer */}
-              {(currentUser.role === 'admin' || currentUser.role === 'accounts') &&
-                activeTab === 'team-attendance' && (
-                  <TeamAttendanceTab
-                    employees={employees}
-                    records={records}
-                    shifts={shifts}
-                    settings={settings}
-                    onUpdateRecord={handleUpdateRecord}
-                    adminUser={currentUser}
-                    currentUser={currentUser}
-                  />
-                )}
+              {/* Team Attendance & Office Presence (P/A) - Accessible by All Employees */}
+              {activeTab === 'team-attendance' && (
+                <TeamAttendanceTab
+                  employees={employees}
+                  records={records}
+                  shifts={shifts}
+                  settings={settings}
+                  onUpdateRecord={handleUpdateRecord}
+                  adminUser={currentUser}
+                  currentUser={currentUser}
+                />
+              )}
 
               {currentUser.role === 'admin' && activeTab === 'employees' && (
                 <EmployeesDirectoryTab
