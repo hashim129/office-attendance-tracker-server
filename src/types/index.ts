@@ -51,6 +51,8 @@ export interface AttendanceRecord {
   clientIp?: string;
   deviceId?: string;
   deviceName?: string;
+  isDeviceMismatch?: boolean;
+  deviceMismatchReason?: string;
   isAutoPunchedOut?: boolean;
   adminVerification?: VerificationInfo;
   accountsVerification?: VerificationInfo;
@@ -68,13 +70,38 @@ export interface ShiftSchedule {
   isActive?: boolean; // When false, shift cannot be assigned or selected
 }
 
+export interface DeviceChangeRequest {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  requestedDeviceId: string;
+  requestedDeviceName: string;
+  previousDeviceId?: string;
+  previousDeviceName?: string;
+  requestedAt: string; // ISO
+  reason?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
+
+export interface DeviceHistoryEntry {
+  id: string;
+  action: 'bound' | 'changed' | 'reset';
+  deviceId?: string;
+  deviceName?: string;
+  changedBy: string; // "Admin Approval", "Admin Reset", etc.
+  changedAt: string; // ISO
+  reason?: string;
+}
+
 export interface Employee {
   id: string;
   employeeCode: string;
   name: string;
   email: string;
   role: Role;
-  pin: string; // 4-digit PIN for Kiosk / quick access
+  pin: string; // 4-digit PIN for Kiosk / quick access / password
   department: string;
   designation: string;
   shiftId: string;
@@ -86,6 +113,10 @@ export interface Employee {
   registeredDeviceId?: string; // Persistent device UUID bound to this employee
   registeredDeviceName?: string; // e.g. "Ahmed's Samsung Galaxy A54 (Android)"
   registeredAt?: string;
+  deviceBoundApprovedBy?: string;
+  deviceBoundApprovedAt?: string;
+  pendingDeviceRequest?: DeviceChangeRequest;
+  deviceChangeHistory?: DeviceHistoryEntry[];
 }
 
 export type LeaveType = 'annual' | 'sick' | 'casual' | 'unpaid' | 'remote_work';
